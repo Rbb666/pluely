@@ -13,7 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "Pluely - AI Assistant",
+        "title": "Pluely - AI 助手",
         "width": 600,
         "height": 54,
         "decorations": false,

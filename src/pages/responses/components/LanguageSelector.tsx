@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react";
 import { getResponseSettings } from "@/lib";
 
 export const LanguageSelector = () => {
-  const { hasActiveLicense } = useApp();
+  const { hasLocalFeatures } = useApp();
   const [selectedLanguage, setSelectedLanguage] = useState<string>("english");
 
   useEffect(() => {
@@ -15,7 +15,7 @@ export const LanguageSelector = () => {
   }, []);
 
   const handleLanguageChange = (languageId: string) => {
-    if (!hasActiveLicense) {
+    if (!hasLocalFeatures) {
       return;
     }
     setSelectedLanguage(languageId);
@@ -32,8 +32,8 @@ export const LanguageSelector = () => {
   return (
     <div className="space-y-4">
       <Header
-        title="Response Language"
-        description="Select the language for AI responses. Setting applies globally to all providers and conversations. Language support may vary depending on your selected LLM provider"
+        title="回复语言"
+        description="选择 AI 回复语言，此设置适用于所有服务和对话。实际语言支持取决于所选模型。"
         isMainTitle
       />
 
@@ -42,8 +42,8 @@ export const LanguageSelector = () => {
           selected={selectedLanguage}
           onChange={handleLanguageChange}
           options={languageOptions}
-          placeholder="Select a language"
-          disabled={!hasActiveLicense}
+          placeholder="选择语言"
+          disabled={!hasLocalFeatures}
         />
       </div>
     </div>

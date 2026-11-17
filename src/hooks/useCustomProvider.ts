@@ -77,7 +77,7 @@ export function useCustomAiProviders() {
     const newErrors: { [key: string]: string } = {};
 
     if (!formData.curl.trim()) {
-      newErrors.curl = "Curl command is required";
+      newErrors.curl = "请输入 cURL 命令";
     } else {
       const validation = validateCurl(formData.curl, ["TEXT"]);
       if (!validation.isValid) {
@@ -86,7 +86,7 @@ export function useCustomAiProviders() {
     }
 
     if (!formData.responseContentPath?.trim()) {
-      newErrors.responseContentPath = "Response content path is required";
+      newErrors.responseContentPath = "请输入响应内容路径";
     }
 
     setErrors(newErrors);

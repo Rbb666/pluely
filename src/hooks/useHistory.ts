@@ -184,16 +184,16 @@ export function useHistory(): UseHistoryReturn {
     conversation: ChatConversation
   ): string => {
     let markdown = `# ${conversation.title}\n\n`;
-    markdown += `**Created:** ${new Date(
+    markdown += `**创建时间：** ${new Date(
       conversation.createdAt
-    ).toLocaleString()}\n`;
-    markdown += `**Updated:** ${new Date(
+    ).toLocaleString("zh-CN")}\n`;
+    markdown += `**更新时间：** ${new Date(
       conversation.updatedAt
-    ).toLocaleString()}\n`;
-    markdown += `**Messages:** ${conversation.messages.length}\n\n---\n\n`;
+    ).toLocaleString("zh-CN")}\n`;
+    markdown += `**消息数：** ${conversation.messages.length}\n\n---\n\n`;
 
     conversation.messages.forEach((message, index) => {
-      const roleLabel = message.role.toUpperCase();
+      const roleLabel = message.role === "user" ? "用户" : message.role === "system" ? "系统" : "AI 助手";
       markdown += `## ${roleLabel}: ${message.content}\n`;
 
       if (index < conversation.messages.length - 1) {
@@ -205,7 +205,7 @@ export function useHistory(): UseHistoryReturn {
   };
 
   const generateFilename = (title: string): string => {
-    const sanitizedTitle = title.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+    const sanitizedTitle = title.replace(/[^\p{L}\p{N}_-]/gu, "_");
     return `${sanitizedTitle.substring(0, 16)}.md`;
   };
 

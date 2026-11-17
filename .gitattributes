@@ -1,0 +1,5 @@
+# This vendored source is verified by its original byte-level SHA-256.
+third_party/pinyin/google_pinyin_rawdict_utf8_65105_freq.txt -text
+# Keep the upstream notices, including their trailing blank line.
+third_party/pinyin/NOTICE whitespace=-blank-at-eof
+public/licenses/pinyin/NOTICE whitespace=-blank-at-eof

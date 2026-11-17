@@ -7,8 +7,8 @@ export const AIProviders = (settings: UseSettingsReturn) => {
   return (
     <div id="ai-providers" className="space-y-3">
       <Header
-        title="AI Providers"
-        description="Select your preferred AI service provider to get started."
+        title="AI 服务"
+        description="选择 AI 服务以开始使用。"
         isMainTitle
       />
 

@@ -77,12 +77,12 @@ export function useCustomSttProviders() {
     const newErrors: { [key: string]: string } = {};
 
     if (!formData.curl.trim()) {
-      newErrors.curl = "Curl command is required";
+      newErrors.curl = "请输入 cURL 命令";
     } else {
       const hasAudioVar = formData.curl.includes("{{AUDIO}}");
 
       if (!hasAudioVar) {
-        newErrors.curl = "cURL command must contain {{AUDIO}}.";
+        newErrors.curl = "cURL 命令必须包含 {{AUDIO}}。";
       } else {
         const validation = validateCurl(formData.curl, []);
         if (!validation.isValid) {
@@ -92,7 +92,7 @@ export function useCustomSttProviders() {
     }
 
     if (!formData.responseContentPath?.trim()) {
-      newErrors.responseContentPath = "Response content path is required";
+      newErrors.responseContentPath = "请输入响应内容路径";
     }
 
     setErrors(newErrors);

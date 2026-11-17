@@ -9,9 +9,9 @@ import { useApp } from "@/contexts";
 const STORAGE_KEY = "pluely-promote-card-dismissed";
 
 const Promote = () => {
-  const { hasActiveLicense } = useApp();
+  const { hasLocalFeatures } = useApp();
 
-  if (hasActiveLicense) return null;
+  if (hasLocalFeatures) return null;
 
   const [isDismissed, setIsDismissed] = useState(
     () => safeLocalStorage.getItem(STORAGE_KEY) === "true"
@@ -29,11 +29,11 @@ const Promote = () => {
       <CardContent className="flex flex-col gap-4 p-4 py-0 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2 md:max-w-[70%]">
           <CardTitle className="text-xs lg:text-sm">
-            Promote Pluely, Earn Rewards
+            推广 Pluely，获得奖励
           </CardTitle>
           <CardDescription className="text-[10px] lg:text-xs">
-            Share Pluely on social, hit 5K impressions, and we&apos;ll send you
-            a $5&ndash;$10 coupon for a monthly plan. Email your post link to{" "}
+            在社交平台分享 Pluely，浏览量达到 5,000 次，即可获得
+            5 至 10 美元的月度套餐优惠券。请将帖子链接发送至{" "}
             <a
               className="text-primary underline underline-offset-4"
               href="mailto:support@pluely.com"
@@ -54,7 +54,8 @@ const Promote = () => {
         </Button>
       </CardContent>
       <button
-        aria-label="Dismiss promotion"
+        aria-label="关闭推广信息"
+        title="关闭推广信息"
         className="absolute -right-1 -top-2 rounded-full border border-transparent bg-primary/10 p-1 transition hover:border-primary/20 hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         onClick={handleDismiss}
         type="button"

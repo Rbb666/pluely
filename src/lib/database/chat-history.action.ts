@@ -92,7 +92,7 @@ export async function createConversation(
   conversation: ChatConversation
 ): Promise<ChatConversation> {
   if (!validateConversation(conversation)) {
-    throw new Error("Invalid conversation data");
+    throw new Error("聊天记录数据无效");
   }
 
   const db = await getDatabase();
@@ -256,7 +256,7 @@ export async function updateConversation(
   conversation: ChatConversation
 ): Promise<ChatConversation> {
   if (!validateConversation(conversation)) {
-    throw new Error("Invalid conversation data");
+    throw new Error("聊天记录数据无效");
   }
 
   const db = await getDatabase();
@@ -269,7 +269,7 @@ export async function updateConversation(
     );
 
     if (updateResult.rowsAffected === 0) {
-      throw new Error("Conversation not found");
+      throw new Error("未找到聊天记录");
     }
 
     // Get existing messages for backup
@@ -345,7 +345,7 @@ export async function saveConversation(
   conversation: ChatConversation
 ): Promise<ChatConversation> {
   if (!validateConversation(conversation)) {
-    throw new Error("Invalid conversation data");
+    throw new Error("聊天记录数据无效");
   }
 
   try {
@@ -445,7 +445,7 @@ export async function migrateLocalStorageToSQLite(): Promise<{
       return {
         success: false,
         migratedCount: 0,
-        error: "Failed to parse localStorage data",
+        error: "解析本地存储数据失败",
       };
     }
 

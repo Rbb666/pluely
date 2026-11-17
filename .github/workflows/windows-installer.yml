@@ -1,0 +1,101 @@
+name: Windows installer
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-installer-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-installer:
+    name: Windows x64 offline installer
+    runs-on: windows-2022
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: '0'
+      # Public CI installers must never embed a developer's migration snapshot.
+      PLUELY_MIGRATION_SEED_DIR: ''
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca
+        with:
+          toolchain: '1.100.0'
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri -> target
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Run frontend regression checks
+        run: |
+          $tests = @(Get-ChildItem -LiteralPath scripts -Filter 'test-*.cjs' | Sort-Object Name)
+          if ($tests.Count -eq 0) { throw 'No frontend regression tests found.' }
+          foreach ($test in $tests) {
+            & node $test.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Regression check failed: $($test.Name)" }
+          }
+
+      - name: Prepare pinned offline WebView2 runtime
+        run: ./scripts/prepare-windows-runtime.ps1
+
+      - name: Build frontend for Rust tests
+        run: npm run build
+
+      - name: Run Rust tests with locked dependencies
+        run: |
+          $env:TAURI_CONFIG = Get-Content -LiteralPath src-tauri/tauri.installer.conf.json -Raw
+          cargo test --manifest-path src-tauri/Cargo.toml --release --locked
+
+      - name: Build NSIS installer
+        run: ./scripts/build-installer.ps1
+
+      - name: Verify installer and generate SHA-256
+        run: |
+          $installers = @(Get-ChildItem -LiteralPath src-tauri/target/release/bundle/nsis -Filter '*-setup.exe')
+          if ($installers.Count -ne 1) { throw "Expected one NSIS installer, found $($installers.Count)." }
+          $installer = $installers[0]
+          & 'C:/Program Files/7-Zip/7z.exe' t $installer.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Installer archive validation failed.' }
+          $hash = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" | Set-Content -LiteralPath ($installer.FullName + '.sha256') -Encoding utf8
+          "### Windows installer`n`n$($installer.Name)`n`nSHA-256: ``$hash``" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload installer and checksum
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Pluely-Local-Windows-x64-${{ github.sha }}
+          path: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/nsis/*-setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

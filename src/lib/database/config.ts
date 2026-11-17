@@ -16,7 +16,7 @@ export async function getDatabase(): Promise<Database> {
       dbInstance = await Database.load(DB_NAME);
     } catch (error) {
       throw new Error(
-        `Failed to initialize database: ${
+        `初始化数据库失败：${
           error instanceof Error ? error.message : String(error)
         }`
       );

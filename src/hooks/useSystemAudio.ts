@@ -83,6 +83,7 @@ export function useSystemAudio() {
   const [vadConfig, setVadConfig] = useState<VadConfig>(DEFAULT_VAD_CONFIG);
   const [recordingProgress, setRecordingProgress] = useState<number>(0); // For continuous mode
   const [isContinuousMode, setIsContinuousMode] = useState<boolean>(false);
+  const [isUpdatingVadConfig, setIsUpdatingVadConfig] = useState(false);
   const [isRecordingInContinuousMode, setIsRecordingInContinuousMode] =
     useState<boolean>(false);
 
@@ -110,6 +111,14 @@ export function useSystemAudio() {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSavingRef = useRef<boolean>(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const isUpdatingVadConfigRef = useRef(false);
+  const captureSessionRef = useRef(0);
+  const captureActiveRef = useRef(false);
+  const sttControllersRef = useRef(new Set<AbortController>());
+  const cancelTranscriptions = useCallback(() => {
+    sttControllersRef.current.forEach((controller) => controller.abort());
+    sttControllersRef.current.clear();
+  }, []);
 
   // Load context settings and VAD config from localStorage on mount
   useEffect(() => {
@@ -163,6 +172,7 @@ export function useSystemAudio() {
     let stopUnlisten: (() => void) | undefined;
     let errorUnlisten: (() => void) | undefined;
     let discardedUnlisten: (() => void) | undefined;
+    let endedUnlisten: (() => void) | undefined;
 
     const setupContinuousListeners = async () => {
       try {
@@ -188,7 +198,7 @@ export function useSystemAudio() {
         errorUnlisten = await listen("audio-encoding-error", (event) => {
           const errorMsg = event.payload as string;
           console.error("Audio encoding error:", errorMsg);
-          setError(`Failed to process audio: ${errorMsg}`);
+          setError(`处理音频失败：${errorMsg}`);
           setIsProcessing(false);
           setIsAIProcessing(false);
           setIsRecordingInContinuousMode(false);
@@ -199,6 +209,17 @@ export function useSystemAudio() {
           const reason = event.payload as string;
           console.log("Speech discarded:", reason);
           // Don't show error - this is expected behavior
+        });
+        endedUnlisten = await listen("system-audio-stream-ended", () => {
+          captureActiveRef.current = false;
+          captureSessionRef.current += 1;
+          cancelTranscriptions();
+          abortControllerRef.current?.abort();
+          setIsAIProcessing(false);
+          setCapturing(false);
+          setIsProcessing(false);
+          setIsRecordingInContinuousMode(false);
+          setError("系统音频采集已中断，请检查播放设备后重新开始。");
         });
       } catch (err) {
         console.error("Failed to setup continuous recording listeners:", err);
@@ -213,6 +234,7 @@ export function useSystemAudio() {
       if (stopUnlisten) stopUnlisten();
       if (errorUnlisten) errorUnlisten();
       if (discardedUnlisten) discardedUnlisten();
+      if (endedUnlisten) endedUnlisten();
     };
   }, []);
 
@@ -223,8 +245,11 @@ export function useSystemAudio() {
     const setupEventListener = async () => {
       try {
         speechUnlisten = await listen("speech-detected", async (event) => {
+          const session = captureSessionRef.current;
+          let sttController: AbortController | undefined;
+          let sttTimeout: ReturnType<typeof setTimeout> | undefined;
           try {
-            if (!capturing) return;
+            if (!capturing || !captureActiveRef.current) return;
 
             const base64Audio = event.payload as string;
             // Convert to blob
@@ -236,8 +261,10 @@ export function useSystemAudio() {
             const audioBlob = new Blob([bytes], { type: "audio/wav" });
 
             const usePluelyAPI = await shouldUsePluelyAPI();
+            // Stop/restart may have happened while the provider lookup was pending.
+            if (session !== captureSessionRef.current || !captureActiveRef.current) return;
             if (!selectedSttProvider.provider && !usePluelyAPI) {
-              setError("No speech provider selected.");
+              setError("尚未选择语音识别服务。");
               return;
             }
 
@@ -246,22 +273,28 @@ export function useSystemAudio() {
             );
 
             if (!providerConfig && !usePluelyAPI) {
-              setError("Speech provider config not found.");
+              setError("未找到语音识别服务配置。");
               return;
             }
 
             setIsProcessing(true);
+            sttController = new AbortController();
+            sttControllersRef.current.add(sttController);
 
             // Add timeout wrapper for STT request (30 seconds)
             const sttPromise = fetchSTT({
               provider: providerConfig,
               selectedProvider: selectedSttProvider,
               audio: audioBlob,
+              signal: sttController.signal,
             });
 
             const timeoutPromise = new Promise<string>((_, reject) => {
-              setTimeout(
-                () => reject(new Error("Speech transcription timed out (30s)")),
+              sttTimeout = setTimeout(
+                () => {
+                  reject(new Error("语音识别超时（30 秒）"));
+                  sttController?.abort();
+                },
                 30000
               );
             });
@@ -271,6 +304,13 @@ export function useSystemAudio() {
                 sttPromise,
                 timeoutPromise,
               ]);
+
+              clearTimeout(sttTimeout);
+              sttTimeout = undefined;
+              sttControllersRef.current.delete(sttController);
+
+              // Ending the session must not send an in-flight ASR result to the LLM.
+              if (session !== captureSessionRef.current || !captureActiveRef.current) return;
 
               if (transcription.trim()) {
                 setLastTranscription(transcription);
@@ -290,21 +330,25 @@ export function useSystemAudio() {
                   previousMessages
                 );
               } else {
-                setError("Received empty transcription");
+                setError("语音识别结果为空");
               }
             } catch (sttError: any) {
+              if (session !== captureSessionRef.current) return;
               console.error("STT Error:", sttError);
-              setError(sttError.message || "Failed to transcribe audio");
+              setError(sttError.message || "语音识别失败");
               setIsPopoverOpen(true);
             }
           } catch (err) {
-            setError("Failed to process speech");
+            if (session !== captureSessionRef.current) return;
+            setError("处理语音失败");
           } finally {
-            setIsProcessing(false);
+            clearTimeout(sttTimeout);
+            if (sttController) sttControllersRef.current.delete(sttController);
+            if (session === captureSessionRef.current) setIsProcessing(false);
           }
         });
       } catch (err) {
-        setError("Failed to setup speech listener");
+        setError("初始化语音监听失败");
       }
     };
 
@@ -429,6 +473,7 @@ export function useSystemAudio() {
 
   // Start continuous recording manually
   const startContinuousRecording = useCallback(async () => {
+    if (isUpdatingVadConfigRef.current) return;
     try {
       setRecordingProgress(0);
       setError("");
@@ -445,7 +490,7 @@ export function useSystemAudio() {
       });
     } catch (err) {
       console.error("Failed to start continuous recording:", err);
-      setError(`Failed to start recording: ${err}`);
+      setError(`开始录音失败：${err}`);
     }
   }, [vadConfig, selectedAudioDevices.output.id]);
 
@@ -463,7 +508,7 @@ export function useSystemAudio() {
       setIsRecordingInContinuousMode(false);
     } catch (err) {
       console.error("Failed to ignore recording:", err);
-      setError(`Failed to ignore recording: ${err}`);
+      setError(`丢弃录音失败：${err}`);
     }
   }, [isContinuousMode, isRecordingInContinuousMode]);
 
@@ -478,7 +523,8 @@ export function useSystemAudio() {
         abortControllerRef.current.abort();
       }
 
-      abortControllerRef.current = new AbortController();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
       try {
         setIsAIProcessing(true);
@@ -489,7 +535,7 @@ export function useSystemAudio() {
 
         const usePluelyAPI = await shouldUsePluelyAPI();
         if (!selectedAIProvider.provider && !usePluelyAPI) {
-          setError("No AI provider selected.");
+          setError("尚未选择 AI 服务。");
           return;
         }
 
@@ -497,7 +543,7 @@ export function useSystemAudio() {
           (p) => p.id === selectedAIProvider.provider
         );
         if (!provider && !usePluelyAPI) {
-          setError("AI provider config not found.");
+          setError("未找到 AI 服务配置。");
           return;
         }
 
@@ -509,15 +555,16 @@ export function useSystemAudio() {
             history: previousMessages,
             userMessage: transcription,
             imagesBase64: [],
+            signal: controller.signal,
           })) {
             fullResponse += chunk;
             setLastAIResponse((prev) => prev + chunk);
           }
         } catch (aiError: any) {
-          setError(aiError.message || "Failed to get AI response");
+          if (!controller.signal.aborted) setError(aiError.message || "获取 AI 回复失败");
         }
 
-        if (fullResponse) {
+        if (fullResponse && !controller.signal.aborted) {
           const timestamp = Date.now();
           setConversation((prev) => ({
             ...prev,
@@ -541,9 +588,9 @@ export function useSystemAudio() {
           }));
         }
       } catch (err) {
-        setError("Failed to get AI response");
+        if (!controller.signal.aborted) setError("获取 AI 回复失败");
       } finally {
-        setIsAIProcessing(false);
+        if (abortControllerRef.current === controller) setIsAIProcessing(false);
         // No auto-restart - user manually controls when to start next recording
       }
     },
@@ -551,6 +598,7 @@ export function useSystemAudio() {
   );
 
   const startCapture = useCallback(async () => {
+    if (isUpdatingVadConfigRef.current) return;
     try {
       setError("");
 
@@ -573,6 +621,8 @@ export function useSystemAudio() {
         updatedAt: 0,
       });
 
+      captureSessionRef.current += 1;
+      captureActiveRef.current = true;
       setCapturing(true);
       setIsPopoverOpen(true);
       setIsContinuousMode(isContinuous);
@@ -599,6 +649,8 @@ export function useSystemAudio() {
         deviceId: deviceId,
       });
     } catch (err) {
+      captureActiveRef.current = false;
+      setCapturing(false);
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage);
       setIsPopoverOpen(true);
@@ -606,6 +658,10 @@ export function useSystemAudio() {
   }, [vadConfig, selectedAudioDevices.output.id]);
 
   const stopCapture = useCallback(async () => {
+    if (isUpdatingVadConfigRef.current) return;
+    captureActiveRef.current = false;
+    captureSessionRef.current += 1;
+    cancelTranscriptions();
     try {
       // Abort any ongoing AI requests
       if (abortControllerRef.current) {
@@ -629,10 +685,10 @@ export function useSystemAudio() {
       setIsPopoverOpen(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(`Failed to stop capture: ${errorMessage}`);
+      setError(`停止采集失败：${errorMessage}`);
       console.error("Stop capture error:", err);
     }
-  }, []);
+  }, [cancelTranscriptions]);
 
   // Manual stop for continuous recording
   const manualStopAndSend = useCallback(async () => {
@@ -649,7 +705,7 @@ export function useSystemAudio() {
       await invoke("manual_stop_continuous");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(`Failed to manually stop: ${errorMessage}`);
+      setError(`手动停止失败：${errorMessage}`);
       setIsProcessing(false); // Clear processing state on error
       console.error("Manual stop error:", err);
     }
@@ -672,10 +728,10 @@ export function useSystemAudio() {
         await startCapture();
       } else {
         setSetupRequired(true);
-        setError("Permission not granted. Please try the manual steps.");
+        setError("尚未获得权限，请按说明手动设置。");
       }
     } catch (err) {
-      setError("Failed to request access. Please try the manual steps below.");
+      setError("权限请求失败，请按下方说明手动设置。");
       setSetupRequired(true);
     }
   }, [startCapture]);
@@ -706,10 +762,13 @@ export function useSystemAudio() {
         await startCapture();
       }
     });
-  }, [startCapture, stopCapture]);
+  }, [capturing, startCapture, stopCapture]);
 
   useEffect(() => {
     return () => {
+      captureActiveRef.current = false;
+      captureSessionRef.current += 1;
+      cancelTranscriptions();
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -783,14 +842,47 @@ export function useSystemAudio() {
 
   // Update VAD configuration
   const updateVadConfiguration = useCallback(async (config: VadConfig) => {
+    if (isUpdatingVadConfigRef.current) return;
+    if (isRecordingInContinuousMode || isProcessing || isAIProcessing) {
+      setError("请先完成当前录音或回复，再调整录音设置。");
+      return;
+    }
+    isUpdatingVadConfigRef.current = true;
+    setIsUpdatingVadConfig(true);
     try {
+      // Capture tasks keep a snapshot of their config. Stop before replacing it.
+      if (capturing) {
+        captureActiveRef.current = false;
+        captureSessionRef.current += 1;
+        cancelTranscriptions();
+        await invoke("stop_system_audio_capture");
+      }
+      await invoke("update_vad_config", { config });
+      if (capturing) {
+        captureActiveRef.current = true;
+        if (config.enabled) {
+          await invoke("start_system_audio_capture", {
+            vadConfig: config,
+            deviceId: selectedAudioDevices.output.id || null,
+          });
+        }
+      }
       setVadConfig(config);
       safeLocalStorage.setItem("vad_config", JSON.stringify(config));
-      await invoke("update_vad_config", { config });
+      setIsContinuousMode(!config.enabled);
+      setIsRecordingInContinuousMode(false);
+      setRecordingProgress(0);
+      setError("");
     } catch (error) {
       console.error("Failed to update VAD config:", error);
+      captureActiveRef.current = false;
+      setCapturing(false);
+      setError(`更新录音设置失败：${error}`);
+    } finally {
+      isUpdatingVadConfigRef.current = false;
+      setIsUpdatingVadConfig(false);
     }
-  }, []);
+  }, [capturing, isRecordingInContinuousMode, isProcessing, isAIProcessing, selectedAudioDevices.output.id]);
 
   useEffect(() => {
     if (capturing) {
@@ -831,6 +923,7 @@ export function useSystemAudio() {
   // Keyboard shortcuts for continuous mode recording (local shortcuts)
   useEffect(() => {
     const handleRecordingShortcuts = (e: KeyboardEvent) => {
+      if (e.isComposing || e.keyCode === 229) return;
       if (!isPopoverOpen || !isContinuousMode) return;
       if (isProcessing || isAIProcessing) return;
 
@@ -914,6 +1007,7 @@ export function useSystemAudio() {
     handleQuickActionClick,
     // VAD configuration
     vadConfig,
+    isUpdatingVadConfig,
     updateVadConfiguration,
     // Continuous recording
     isContinuousMode,

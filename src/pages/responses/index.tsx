@@ -7,22 +7,20 @@ import { PageLayout } from "@/layouts";
 import { useApp } from "@/contexts";
 
 const Responses = () => {
-  const { hasActiveLicense } = useApp();
+  const { hasLocalFeatures } = useApp();
 
   return (
     <PageLayout
-      title="Response Settings"
-      description="Customize how AI generates and displays responses"
+      title="回复设置"
+      description="自定义 AI 回复的生成和显示方式"
     >
-      {!hasActiveLicense && (
+      {!hasLocalFeatures && (
         <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
           <p className="text-[10px] lg:text-sm text-foreground font-medium mb-2">
-            🔒 Premium Features
+            🔒 高级功能
           </p>
           <p className="text-[10px] lg:text-sm text-muted-foreground">
-            Response customization features (Response Length, Language
-            Selection, and Auto-Scroll Control) require an active license to
-            use.
+            自定义回复长度、语言和自动滚动等功能需要有效授权。
           </p>
         </div>
       )}

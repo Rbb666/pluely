@@ -3,6 +3,8 @@ mod activate;
 mod api;
 mod capture;
 mod db;
+mod migration;
+mod user_data;
 mod shortcuts;
 mod window;
 use std::sync::{Arc, Mutex};
@@ -34,6 +36,10 @@ pub fn run() {
     // Get PostHog API key
     let posthog_api_key = option_env!("POSTHOG_API_KEY").unwrap_or("").to_string();
     let mut builder = tauri::Builder::default()
+        // An explicitly confirmed import takes precedence over optional first-run seeds.
+        .plugin(user_data::plugin())
+        // Restore a fresh destination before the SQL plugin opens its database.
+        .plugin(migration::plugin())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:pluely.db", db::migrations())
@@ -45,7 +51,6 @@ pub fn run() {
             is_hidden: Mutex::new(false),
         })
         .manage(shortcuts::RegisteredShortcuts::default())
-        .manage(shortcuts::LicenseState::default())
         .manage(shortcuts::MoveWindowState::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -73,6 +78,13 @@ pub fn run() {
     let mut builder = builder
         .invoke_handler(tauri::generate_handler![
             get_app_version,
+            user_data::stage_user_data_import,
+            user_data::export_user_data,
+            user_data::restart_after_user_data_import,
+            user_data::get_pending_user_data_settings,
+            user_data::complete_user_data_import,
+            migration::get_migration_seed,
+            migration::complete_migration_seed,
             window::set_window_height,
             window::open_dashboard,
             window::toggle_dashboard,
@@ -85,7 +97,6 @@ pub fn run() {
             shortcuts::get_registered_shortcuts,
             shortcuts::update_shortcuts,
             shortcuts::validate_shortcut_key,
-            shortcuts::set_license_status,
             shortcuts::set_app_icon_visibility,
             shortcuts::set_always_on_top,
             shortcuts::exit_app,

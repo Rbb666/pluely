@@ -7,7 +7,7 @@ import { getResponseSettings } from "@/lib";
 import { CheckCircle2 } from "lucide-react";
 
 export const ResponseLength = () => {
-  const { hasActiveLicense } = useApp();
+  const { hasLocalFeatures } = useApp();
   const [selectedLength, setSelectedLength] = useState<string>("auto");
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export const ResponseLength = () => {
   }, []);
 
   const handleLengthChange = (lengthId: string) => {
-    if (!hasActiveLicense) {
+    if (!hasLocalFeatures) {
       return;
     }
     setSelectedLength(lengthId);
@@ -26,8 +26,8 @@ export const ResponseLength = () => {
   return (
     <div className="space-y-4">
       <Header
-        title="Response Length"
-        description="Control how detailed the AI responses should be. Changes apply to all new conversations and will influence how the AI structures responses"
+        title="回复长度"
+        description="设置 AI 回复的详细程度，更改适用于新对话。"
         isMainTitle
       />
 
@@ -39,7 +39,7 @@ export const ResponseLength = () => {
               selectedLength === length.id
                 ? "border-primary"
                 : "border-border hover:border-primary/50"
-            } ${!hasActiveLicense ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${!hasLocalFeatures ? "opacity-50 cursor-not-allowed" : ""}`}
             onClick={() => handleLengthChange(length.id)}
           >
             <div className="space-y-1">

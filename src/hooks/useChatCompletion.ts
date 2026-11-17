@@ -60,7 +60,7 @@ export const useChatCompletion = (
     selectedSttProvider,
     allSttProviders,
     selectedAudioDevices,
-    hasActiveLicense,
+    hasLocalFeatures,
   } = useApp();
 
   const [state, setState] = useState<ChatCompletionState>({
@@ -179,7 +179,7 @@ export const useChatCompletion = (
         if (!selectedAIProvider.provider && !usePluelyAPI) {
           setState((prev) => ({
             ...prev,
-            error: "Please select an AI provider in settings",
+            error: "请先在服务配置中选择 AI 服务",
           }));
           return;
         }
@@ -190,7 +190,7 @@ export const useChatCompletion = (
         if (!provider && !usePluelyAPI) {
           setState((prev) => ({
             ...prev,
-            error: "Invalid provider selected",
+            error: "所选服务无效",
           }));
           return;
         }
@@ -286,7 +286,7 @@ export const useChatCompletion = (
             setState((prev) => ({
               ...prev,
               isLoading: false,
-              error: e.message || "An error occurred",
+              error: e.message || "发生错误",
             }));
           }
           return;
@@ -359,7 +359,7 @@ export const useChatCompletion = (
             console.error("Failed to save conversation:", error);
             setState((prev) => ({
               ...prev,
-              error: "Failed to save conversation. Please try again.",
+              error: "保存聊天记录失败，请重试。",
             }));
           }
         }
@@ -368,7 +368,7 @@ export const useChatCompletion = (
         if (!signal?.aborted && currentRequestIdRef.current === requestId) {
           setState((prev) => ({
             ...prev,
-            error: error instanceof Error ? error.message : "An error occurred",
+            error: error instanceof Error ? error.message : "发生错误",
             isLoading: false,
           }));
         }
@@ -429,7 +429,7 @@ export const useChatCompletion = (
       if (state.attachedFiles.length >= MAX_FILES) {
         setState((prev) => ({
           ...prev,
-          error: `You can only upload ${MAX_FILES} files`,
+          error: `最多只能上传 ${MAX_FILES} 个文件`,
         }));
         return;
       }
@@ -476,7 +476,7 @@ export const useChatCompletion = (
           error:
             error instanceof Error
               ? error.message
-              : "An error occurred processing screenshot",
+              : "处理截图时发生错误",
           isLoading: false,
         }));
       }
@@ -490,6 +490,7 @@ export const useChatCompletion = (
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (!state.isLoading && state.input.trim()) {
@@ -567,7 +568,7 @@ export const useChatCompletion = (
             setState((prev) => ({
               ...prev,
               error:
-                "Screen Recording permission required. Please enable it by going to System Settings > Privacy & Security > Screen & System Audio Recording. If you don't see Pluely in the list, click the '+' button to add it. If it's already listed, make sure it's enabled. Then restart the app.",
+                "需要屏幕录制权限。请前往“系统设置 > 隐私与安全性 > 屏幕与系统音频录制”启用 Pluely。若列表中没有 Pluely，请点击“+”添加；若已有，请确认开关已开启，然后重启应用。",
             }));
             setIsScreenshotLoading(false);
             screenshotInitiatedByThisContext.current = false;
@@ -591,11 +592,11 @@ export const useChatCompletion = (
         screenshotInitiatedByThisContext.current = false;
       } else {
         // Selection Mode: Open overlay to select an area
-        // Only allow if user has active license
-        if (!hasActiveLicense) {
+        // Selection capture is a local feature
+        if (!hasLocalFeatures) {
           setState((prev) => ({
             ...prev,
-            error: "Selection mode requires an active license",
+            error: "此版本暂不支持区域截图",
           }));
           setIsScreenshotLoading(false);
           screenshotInitiatedByThisContext.current = false;
@@ -607,7 +608,7 @@ export const useChatCompletion = (
     } catch (error) {
       setState((prev) => ({
         ...prev,
-        error: "Failed to capture screenshot. Please try again.",
+        error: "截图失败，请重试。",
       }));
       isProcessingScreenshotRef.current = false;
       screenshotInitiatedByThisContext.current = false;
@@ -616,7 +617,7 @@ export const useChatCompletion = (
         setIsScreenshotLoading(false);
       }
     }
-  }, [handleScreenshotSubmit, hasActiveLicense]);
+  }, [handleScreenshotSubmit, hasLocalFeatures]);
 
   useEffect(() => {
     let unlisten: any;
@@ -720,6 +721,6 @@ export const useChatCompletion = (
     selectedSttProvider,
     allSttProviders,
     selectedAudioDevices,
-    hasActiveLicense,
+    hasLocalFeatures,
   };
 };

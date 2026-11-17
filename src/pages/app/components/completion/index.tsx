@@ -10,7 +10,11 @@ export const Completion = ({ isHidden }: { isHidden: boolean }) => {
   return (
     <>
       <Audio {...completion} />
-      <Input {...completion} isHidden={isHidden} />
+      <Input
+        {...completion}
+        isHidden={isHidden}
+        isPopoverOpen={completion.isPopoverOpen && !completion.micOpen}
+      />
       <Screenshot {...completion} />
       <Files {...completion} />
     </>

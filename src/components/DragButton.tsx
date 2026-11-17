@@ -11,21 +11,21 @@ import {
 import { useWindowResize } from "@/hooks";
 
 export const DragButton = () => {
-  const { hasActiveLicense } = useApp();
+  const { hasLocalFeatures } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const { resizeWindow } = useWindowResize();
 
   useEffect(() => {
-    if (!hasActiveLicense) {
+    if (!hasLocalFeatures) {
       resizeWindow(isOpen);
     }
-  }, [hasActiveLicense, isOpen, resizeWindow]);
+  }, [hasLocalFeatures, isOpen, resizeWindow]);
 
-  if (!hasActiveLicense) {
+  if (!hasLocalFeatures) {
     return (
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild className="border-none hover:bg-transparent">
-          <Button variant="ghost" size="icon" className={`-ml-[2px] w-fit`}>
+          <Button variant="ghost" size="icon" className={`-ml-[2px] w-fit`} title="拖动窗口">
             <GripVerticalIcon className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
@@ -38,12 +38,11 @@ export const DragButton = () => {
           <div className="flex flex-col gap-2 w-116">
             <div className="flex flex-col gap-1 pb-2">
               <p className="text-md font-medium">
-                You need an active license to use this feature.
+                使用此功能需要有效授权。
               </p>
               <p className="text-sm font-medium text-muted-foreground">
-                Once you complete your purchase, you'll receive a license key
-                via email. Paste in the Settings → Pluely Access section to
-                activate.
+                购买后，你会通过电子邮件收到授权密钥。
+                请在“控制面板”的 Pluely 授权区域粘贴密钥并激活。
               </p>
             </div>
             <GetLicense setState={setIsOpen} />
@@ -58,7 +57,9 @@ export const DragButton = () => {
       variant="ghost"
       size="icon"
       className={`-ml-[2px] w-fit`}
-      data-tauri-drag-region={hasActiveLicense}
+      data-tauri-drag-region={hasLocalFeatures}
+      title="按住拖动窗口"
+      aria-label="拖动窗口"
     >
       <GripVerticalIcon className="h-4 w-4" />
     </Button>

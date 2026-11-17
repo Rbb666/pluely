@@ -1,5 +1,24 @@
 import { Message } from "@/types";
 
+/** Display labels only; provider variable keys remain unchanged. */
+export function getProviderVariableLabel(variable: string): string {
+  const labels: Record<string, string> = {
+    API_KEY: "API 密钥",
+    MODEL: "模型名称",
+    BASE_URL: "接口地址",
+    ENDPOINT: "接口地址",
+    REGION: "区域",
+    PROJECT_ID: "项目 ID",
+    ORGANIZATION: "组织",
+    ORGANIZATION_ID: "组织 ID",
+    DEPLOYMENT: "部署名称",
+    DEPLOYMENT_ID: "部署 ID",
+    API_VERSION: "API 版本",
+    LANGUAGE: "语言",
+  };
+  return labels[variable.toUpperCase()] || variable;
+}
+
 export function getByPath(obj: any, path: string): any {
   if (!path) return obj;
   return path

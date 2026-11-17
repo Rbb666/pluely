@@ -162,9 +162,11 @@ export const useGlobalShortcuts = () => {
         // Listen for focus text input event
         const unlistenFocus = await listen("focus-text-input", () => {
           setTimeout(() => {
-            if (globalInputRef) {
-              globalInputRef.focus();
-            }
+            // Switching input modes replaces the element while keeping the same draft.
+            const input = globalInputRef?.isConnected
+              ? globalInputRef
+              : document.querySelector<HTMLInputElement>("#main-chat-input input");
+            input?.focus();
           }, 100);
         });
         globalEventListeners.focus = unlistenFocus;

@@ -8,23 +8,23 @@ const getOsInstructions = () => {
   switch (platform) {
     case "macos":
       return {
-        mic: "System Preferences → Sound → Input",
-        audio: "System Preferences → Sound → Output",
+        mic: "系统设置 → 声音 → 输入",
+        audio: "系统设置 → 声音 → 输出",
       };
     case "windows":
       return {
-        mic: "Settings → System → Sound → Input",
-        audio: "Settings → System → Sound → Output",
+        mic: "设置 → 系统 → 声音 → 输入",
+        audio: "设置 → 系统 → 声音 → 输出",
       };
     case "linux":
       return {
-        mic: "Sound Settings → Input Devices",
-        audio: "Sound Settings → Output Devices",
+        mic: "声音设置 → 输入设备",
+        audio: "声音设置 → 输出设备",
       };
     default:
       return {
-        mic: "your system's sound settings",
-        audio: "your system's sound settings",
+        mic: "系统声音设置",
+        audio: "系统声音设置",
       };
   }
 };
@@ -34,24 +34,19 @@ const Audio = () => {
 
   return (
     <PageLayout
-      title="Audio Settings"
-      description="Configure your audio input and output devices for voice interaction and system audio capture."
+      title="音频设置"
+      description="配置语音交互和系统音频采集所用的输入、输出设备。"
     >
       <AudioSelection />
 
       <div className="text-xs text-amber-600 bg-amber-500/10 p-3 rounded-md mb-4 space-y-2">
         <p>
-          <strong>⚠️ If selected devices don't work:</strong> Please verify your
-          default system audio settings. Go to{" "}
-          <strong>{osInstructions.mic}</strong> for microphone and{" "}
-          <strong>{osInstructions.audio}</strong> for speakers/headphones.
-          Ensure the correct devices are set as default in your operating
-          system.
+          <strong>⚠️ 所选设备无法使用时：</strong> 请检查系统默认音频设置。麦克风设置位于{" "}
+          <strong>{osInstructions.mic}</strong> ，扬声器或耳机设置位于{" "}
+          <strong>{osInstructions.audio}</strong> 。请确保系统默认设备设置正确。
         </p>
         <p className="text-amber-600/80">
-          <strong>Note:</strong> If the selected device fails or is unavailable,
-          Pluely will automatically fall back to your system's default audio
-          devices.
+          <strong>说明：</strong> 若所选设备故障或不可用，Pluely 会自动使用系统默认音频设备。
         </p>
       </div>
     </PageLayout>

@@ -149,12 +149,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const getActiveLicenseStatus = async () => {
-    const response: { is_active: boolean; is_dev_license: boolean } =
-      await invoke("validate_license_api");
+    let response: { is_active: boolean; is_dev_license: boolean };
+    try {
+      response = await invoke("validate_license_api");
+    } catch (error) {
+      // Self-hosted builds may have no official service configuration or license.
+      // Local features and user-configured providers must still initialize.
+      console.debug("Hosted license unavailable:", error);
+      setHasActiveLicense(false);
+      await setPluelyApiEnabled(false);
+      return;
+    }
     setHasActiveLicense(response.is_active);
 
-    if (response?.is_dev_license) {
-      setPluelyApiEnabled(false);
+    if (!response.is_active || response.is_dev_license) {
+      await setPluelyApiEnabled(false);
     }
 
     // Check if the auto configs are enabled
@@ -171,21 +180,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    const syncLicenseState = async () => {
+    const initializeShortcuts = async () => {
       try {
-        await invoke("set_license_status", {
-          hasLicense: hasActiveLicense,
-        });
-
         const config = getShortcutsConfig();
         await invoke("update_shortcuts", { config });
       } catch (error) {
-        console.error("Failed to synchronize license state:", error);
+        console.error("Failed to initialize shortcuts:", error);
       }
     };
 
-    syncLicenseState();
-  }, [hasActiveLicense]);
+    initializeShortcuts();
+  }, []);
 
   // Function to load AI, STT, system prompt and screenshot config data from storage
   const loadData = () => {
@@ -377,7 +382,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         // Only apply autostart on the very first launch
         if (!autostartInitialized) {
-          const autostartEnabled = customizable?.autostart?.isEnabled ?? true;
+          // Imports restore storage before mount; React's initial state may still
+          // be the defaults until loadData's state update is committed.
+          const autostartEnabled = getCustomizableState().autostart.isEnabled;
 
           if (autostartEnabled) {
             await enable();
@@ -674,6 +681,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     pluelyApiEnabled,
     setPluelyApiEnabled,
     hasActiveLicense,
+    hasLocalFeatures: true,
     setHasActiveLicense,
     getActiveLicenseStatus,
     selectedAudioDevices,

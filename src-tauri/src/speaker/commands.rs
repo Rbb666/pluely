@@ -57,11 +57,11 @@ pub async fn start_system_audio_capture(
         let guard = state
             .stream_task
             .lock()
-            .map_err(|e| format!("Failed to acquire lock: {}", e))?;
+            .map_err(|e| format!("获取音频状态锁失败：{}", e))?;
 
         if guard.is_some() {
             warn!("Capture already running");
-            return Err("Capture already running".to_string());
+            return Err("音频采集已在运行".to_string());
         }
     }
 
@@ -70,23 +70,27 @@ pub async fn start_system_audio_capture(
         let mut vad_cfg = state
             .vad_config
             .lock()
-            .map_err(|e| format!("Failed to acquire VAD config lock: {}", e))?;
+            .map_err(|e| format!("获取语音检测配置锁失败：{}", e))?;
         *vad_cfg = config;
     }
 
     let input = SpeakerInput::new_with_device(device_id).map_err(|e| {
         error!("Failed to create speaker input: {}", e);
-        format!("Failed to access system audio: {}", e)
+        format!("无法访问系统音频：{}", e)
     })?;
 
     let stream = input.stream();
     let sr = stream.sample_rate();
 
+    if sr == 0 {
+        return Err("系统音频初始化失败，请检查所选扬声器或耳机是否可用。".to_string());
+    }
+
     // Validate sample rate
     if !(8000..=96000).contains(&sr) {
         error!("Invalid sample rate: {}", sr);
         return Err(format!(
-            "Invalid sample rate: {}. Expected 8000-96000 Hz",
+            "无效的采样率：{}，应为 8000–96000 Hz",
             sr
         ));
     }
@@ -95,14 +99,14 @@ pub async fn start_system_audio_capture(
     let vad_config = state
         .vad_config
         .lock()
-        .map_err(|e| format!("Failed to read VAD config: {}", e))?
+        .map_err(|e| format!("读取语音检测配置失败：{}", e))?
         .clone();
 
     // Mark as capturing BEFORE spawning task
     *state
         .is_capturing
         .lock()
-        .map_err(|e| format!("Failed to set capturing state: {}", e))? = true;
+        .map_err(|e| format!("设置音频采集状态失败：{}", e))? = true;
 
     // Emit capture started event
     let _ = app_clone.emit("capture-started", sr);
@@ -111,11 +115,15 @@ pub async fn start_system_audio_capture(
     let task = tokio::spawn(async move {
         if vad_config.enabled {
             run_vad_capture(app_clone.clone(), stream, sr, vad_config).await;
+            let _ = app_clone.emit("system-audio-stream-ended", ());
         } else {
             run_continuous_capture(app_clone.clone(), stream, sr, vad_config).await;
         }
 
         let state = app_clone.state::<crate::AudioState>();
+        if let Ok(mut capturing) = state.is_capturing.lock() {
+            *capturing = false;
+        }
         {
             if let Ok(mut guard) = state.stream_task.lock() {
                 *guard = None;
@@ -126,7 +134,7 @@ pub async fn start_system_audio_capture(
     *state_clone
         .stream_task
         .lock()
-        .map_err(|e| format!("Failed to store task: {}", e))? = Some(task);
+        .map_err(|e| format!("保存音频采集任务失败：{}", e))? = Some(task);
 
     Ok(())
 }
@@ -222,12 +230,12 @@ async fn run_vad_capture(
                                 let _ = app.emit("speech-detected", b64);
                             } else {
                                 error!("Failed to encode speech to WAV");
-                                let _ = app.emit("audio-encoding-error", "Failed to encode speech");
+                                let _ = app.emit("audio-encoding-error", "语音编码失败");
                             }
                         } else {
                             let _ = app.emit(
                                 "speech-discarded",
-                                "Audio too short (likely background noise)",
+                                "音频过短，可能是背景噪声",
                             );
                         }
 
@@ -289,7 +297,7 @@ async fn run_continuous_capture(
     // Accumulate audio - check stop flag on EVERY sample for immediate response
     loop {
         // Check stop flag FIRST on every iteration for immediate stopping
-        if stop_flag.load(Ordering::Acquire) {
+        if stop_flag.load(Ordering::Acquire) || start_time.elapsed() >= max_duration {
             break;
         }
 
@@ -335,7 +343,8 @@ async fn run_continuous_capture(
     app.unlisten(stop_listener);
 
     // Process and emit audio
-    if !audio_buffer.is_empty() {
+    let (_, peak) = calculate_audio_metrics(&audio_buffer);
+    if !audio_buffer.is_empty() && peak > config.noise_gate_threshold {
         // let duration = start_time.elapsed().as_secs_f32();
 
         // Apply noise gate
@@ -353,7 +362,7 @@ async fn run_continuous_capture(
         }
     } else {
         warn!("No audio captured in continuous mode");
-        let _ = app.emit("audio-encoding-error", "No audio recorded");
+        let _ = app.emit("audio-encoding-error", "未检测到电脑播放的声音，请确认选择了正在播放的扬声器或耳机；此入口不录麦克风。");
     }
 
     let _ = app.emit("continuous-recording-stopped", ());
@@ -378,6 +387,9 @@ fn apply_noise_gate(samples: &[f32], threshold: f32) -> Vec<f32> {
 
 // Calculate RMS and peak (optimized)
 fn calculate_audio_metrics(chunk: &[f32]) -> (f32, f32) {
+    if chunk.is_empty() {
+        return (0.0, 0.0);
+    }
     let mut sumsq = 0.0f32;
     let mut peak = 0.0f32;
 
@@ -424,14 +436,14 @@ fn samples_to_wav_b64(sample_rate: u32, mono_f32: &[f32]) -> Result<String, Stri
     if !(8000..=96000).contains(&sample_rate) {
         error!("Invalid sample rate: {}", sample_rate);
         return Err(format!(
-            "Invalid sample rate: {}. Expected 8000-96000 Hz",
+            "无效的采样率：{}，应为 8000–96000 Hz",
             sample_rate
         ));
     }
 
     // Validate buffer
     if mono_f32.is_empty() {
-        return Err("Empty audio buffer".to_string());
+        return Err("音频缓冲区为空".to_string());
     }
 
     let mut cursor = Cursor::new(Vec::new());
@@ -444,16 +456,20 @@ fn samples_to_wav_b64(sample_rate: u32, mono_f32: &[f32]) -> Result<String, Stri
 
     let mut writer = WavWriter::new(&mut cursor, spec).map_err(|e| {
         error!("Failed to create WAV writer: {}", e);
-        e.to_string()
+        format!("创建 WAV 音频失败：{}", e)
     })?;
 
     for &s in mono_f32 {
         let clamped = s.clamp(-1.0, 1.0);
         let sample_i16 = (clamped * i16::MAX as f32) as i16;
-        writer.write_sample(sample_i16).map_err(|e| e.to_string())?;
+        writer
+            .write_sample(sample_i16)
+            .map_err(|e| format!("写入音频采样失败：{}", e))?;
     }
 
-    writer.finalize().map_err(|e| e.to_string())?;
+    writer
+        .finalize()
+        .map_err(|e| format!("完成音频编码失败：{}", e))?;
 
     Ok(B64.encode(cursor.into_inner()))
 }
@@ -467,7 +483,7 @@ pub async fn stop_system_audio_capture(app: AppHandle) -> Result<(), String> {
         let mut guard = state
             .stream_task
             .lock()
-            .map_err(|e| format!("Failed to acquire task lock: {}", e))?;
+            .map_err(|e| format!("获取音频任务锁失败：{}", e))?;
 
         if let Some(task) = guard.take() {
             task.abort();
@@ -481,7 +497,7 @@ pub async fn stop_system_audio_capture(app: AppHandle) -> Result<(), String> {
     *state
         .is_capturing
         .lock()
-        .map_err(|e| format!("Failed to update capturing state: {}", e))? = false;
+        .map_err(|e| format!("更新音频采集状态失败：{}", e))? = false;
 
     // Additional cleanup delay (CRITICAL for mic indicator)
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
@@ -522,7 +538,7 @@ pub async fn request_system_audio_access(app: AppHandle) -> Result<(), String> {
             .spawn()
             .map_err(|e| {
                 error!("Failed to open system preferences: {}", e);
-                e.to_string()
+                format!("打开系统设置失败：{}", e)
             })?;
     }
     #[cfg(target_os = "windows")]
@@ -532,7 +548,7 @@ pub async fn request_system_audio_access(app: AppHandle) -> Result<(), String> {
             .spawn()
             .map_err(|e| {
                 error!("Failed to open sound settings: {}", e);
-                e.to_string()
+                format!("打开声音设置失败：{}", e)
             })?;
     }
     #[cfg(target_os = "linux")]
@@ -562,7 +578,7 @@ pub async fn get_vad_config(app: AppHandle) -> Result<VadConfig, String> {
     let config = state
         .vad_config
         .lock()
-        .map_err(|e| format!("Failed to get VAD config: {}", e))?
+        .map_err(|e| format!("获取语音检测配置失败：{}", e))?
         .clone();
     Ok(config)
 }
@@ -571,17 +587,17 @@ pub async fn get_vad_config(app: AppHandle) -> Result<VadConfig, String> {
 pub async fn update_vad_config(app: AppHandle, config: VadConfig) -> Result<(), String> {
     // Validate config
     if config.sensitivity_rms < 0.0 || config.sensitivity_rms > 1.0 {
-        return Err("Invalid sensitivity_rms: must be 0.0-1.0".to_string());
+        return Err("语音检测灵敏度无效，必须在 0.0–1.0 之间".to_string());
     }
     if config.max_recording_duration_secs > 3600 {
-        return Err("Invalid max_recording_duration_secs: must be <= 3600 (1 hour)".to_string());
+        return Err("最长录音时长无效，不能超过 3600 秒（1 小时）".to_string());
     }
 
     let state = app.state::<crate::AudioState>();
     *state
         .vad_config
         .lock()
-        .map_err(|e| format!("Failed to update VAD config: {}", e))? = config;
+        .map_err(|e| format!("更新语音检测配置失败：{}", e))? = config;
 
     Ok(())
 }
@@ -592,7 +608,7 @@ pub async fn get_capture_status(app: AppHandle) -> Result<bool, String> {
     let is_capturing = *state
         .is_capturing
         .lock()
-        .map_err(|e| format!("Failed to get capture status: {}", e))?;
+        .map_err(|e| format!("获取音频采集状态失败：{}", e))?;
     Ok(is_capturing)
 }
 
@@ -600,7 +616,7 @@ pub async fn get_capture_status(app: AppHandle) -> Result<bool, String> {
 pub fn get_audio_sample_rate(_app: AppHandle) -> Result<u32, String> {
     let input = SpeakerInput::new().map_err(|e| {
         error!("Failed to create speaker input: {}", e);
-        format!("Failed to access system audio: {}", e)
+        format!("无法访问系统音频：{}", e)
     })?;
 
     let stream = input.stream();
@@ -613,7 +629,7 @@ pub fn get_audio_sample_rate(_app: AppHandle) -> Result<u32, String> {
 pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
     crate::speaker::list_input_devices().map_err(|e| {
         error!("Failed to get input devices: {}", e);
-        format!("Failed to get input devices: {}", e)
+        format!("获取音频输入设备失败：{}", e)
     })
 }
 
@@ -621,6 +637,6 @@ pub fn get_input_devices() -> Result<Vec<AudioDevice>, String> {
 pub fn get_output_devices() -> Result<Vec<AudioDevice>, String> {
     crate::speaker::list_output_devices().map_err(|e| {
         error!("Failed to get output devices: {}", e);
-        format!("Failed to get output devices: {}", e)
+        format!("获取音频输出设备失败：{}", e)
     })
 }

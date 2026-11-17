@@ -7,7 +7,8 @@ const isAnyPopoverOpen = (): boolean => {
   const popoverContents = document.querySelectorAll(
     "[data-radix-popper-content-wrapper]"
   );
-  return popoverContents.length > 0;
+  return popoverContents.length > 0 ||
+    document.querySelector("[data-protected-pinyin-panel]") !== null;
 };
 
 export const useWindowResize = () => {

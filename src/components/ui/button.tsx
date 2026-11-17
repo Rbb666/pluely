@@ -48,8 +48,13 @@ function Button({
   return (
     <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={cn(
+        buttonVariants({ variant, size, className }),
+        !asChild && "disabled:pointer-events-auto disabled:cursor-not-allowed"
+      )}
       {...props}
+      title={props.title ?? (size === "icon" ? props["aria-label"] : undefined)}
+      aria-label={props["aria-label"] ?? props.title}
     />
   );
 }

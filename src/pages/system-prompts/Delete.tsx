@@ -35,7 +35,7 @@ export const DeleteSystemPrompt = ({
       await onDelete(promptId);
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to delete system prompt:", error);
+      console.error("删除系统提示词失败：", error);
     } finally {
       setIsDeleting(false);
     }
@@ -50,17 +50,16 @@ export const DeleteSystemPrompt = ({
               <AlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <div className="flex-1">
-              <DialogTitle>Delete System Prompt</DialogTitle>
+              <DialogTitle>删除系统提示词</DialogTitle>
               <DialogDescription className="mt-1">
-                Are you sure you want to delete "{promptName}"?
+                确定要删除“{promptName}”？
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
         <div className="py-3">
           <p className="text-sm text-muted-foreground">
-            This action cannot be undone. This will permanently delete the
-            system prompt from the database.
+            此操作无法撤销，将从数据库中永久删除该系统提示词。
           </p>
         </div>
         <DialogFooter>
@@ -69,14 +68,14 @@ export const DeleteSystemPrompt = ({
             onClick={() => onOpenChange(false)}
             disabled={isDeleting}
           >
-            Cancel
+            取消
           </Button>
           <Button
             variant="destructive"
             onClick={handleConfirmDelete}
             disabled={isDeleting}
           >
-            {isDeleting ? "Deleting..." : "Delete"}
+            {isDeleting ? "正在删除…" : "删除"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -8,7 +8,7 @@ use std::task::{Poll, Waker};
 use std::thread;
 use std::time::Duration;
 use tracing::error;
-use wasapi::{get_default_device, DeviceCollection, Direction, SampleType, StreamMode, WaveFormat};
+use wasapi::{get_default_device, DeviceCollection, Direction, SampleType, StreamMode, WasapiError, WaveFormat};
 
 pub fn get_input_devices() -> Result<Vec<AudioDevice>> {
     let mut devices = Vec::new();
@@ -137,9 +137,19 @@ impl SpeakerInput {
 
         let capture_thread = thread::spawn(move || {
             if let Err(e) =
-                SpeakerStream::capture_audio_loop(queue_clone, waker_clone, init_tx, device_id)
+                SpeakerStream::capture_audio_loop(queue_clone, waker_clone.clone(), init_tx, device_id)
             {
                 error!("Pluely Audio capture loop failed: {}", e);
+            }
+            // Let the async consumer finish if initialization or capture failed.
+            // Otherwise it can remain Pending forever after this thread exits.
+            let waker = {
+                let mut state = waker_clone.lock().unwrap();
+                state.shutdown = true;
+                state.waker.take()
+            };
+            if let Some(waker) = waker {
+                waker.wake();
             }
         });
 
@@ -147,11 +157,11 @@ impl SpeakerInput {
             Ok(Ok(rate)) => rate,
             Ok(Err(e)) => {
                 error!("Pluely Audio initialization failed: {}", e);
-                44100
+                0
             }
             Err(_) => {
                 error!("Pluely Audio initialization timeout");
-                44100
+                0
             }
         };
 
@@ -198,7 +208,7 @@ impl SpeakerStream {
                         d
                     }
                     None => {
-                        get_default_device(&Direction::Render).expect("No default render device")
+                        get_default_device(&Direction::Render)?
                     }
                 },
                 None => get_default_device(&Direction::Render)?,
@@ -245,22 +255,30 @@ impl SpeakerStream {
                         }
                     }
 
-                    if h_event.wait_for_event(3000).is_err() {
-                        error!("Pluely timeout error, stopping capture");
-                        break;
-                    }
+                    let silent = match h_event.wait_for_event(250) {
+                        Ok(()) => false,
+                        // Loopback devices may emit no events while the PC is silent.
+                        // Supply elapsed silence so VAD can finish the last utterance.
+                        Err(WasapiError::EventTimeout) => true,
+                        Err(e) => return Err(e.into()),
+                    };
 
                     let mut temp_queue = VecDeque::new();
-                    if let Err(e) = render_client.read_from_device_to_deque(&mut temp_queue) {
-                        error!("Pluely Failed to read audio data: {}", e);
+                    if !silent {
+                        if let Err(e) = render_client.read_from_device_to_deque(&mut temp_queue) {
+                            return Err(e.into());
+                        }
+                    }
+
+                    if !silent && temp_queue.is_empty() {
                         continue;
                     }
 
-                    if temp_queue.is_empty() {
-                        continue;
-                    }
-
-                    let mut samples = Vec::new();
+                    let mut samples = if silent {
+                        vec![0.0; sample_rate as usize / 4]
+                    } else {
+                        Vec::new()
+                    };
                     while temp_queue.len() >= 4 {
                         let bytes = [
                             temp_queue.pop_front().unwrap(),

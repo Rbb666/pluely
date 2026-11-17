@@ -7,8 +7,8 @@ export const STTProviders = (settings: UseSettingsReturn) => {
   return (
     <div id="stt-providers" className="space-y-3">
       <Header
-        title="STT Providers"
-        description="Select your preferred STT service provider to get started."
+        title="语音识别服务"
+        description="选择语音识别服务以开始使用。"
         isMainTitle
       />
 

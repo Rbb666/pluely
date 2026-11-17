@@ -15,8 +15,8 @@ export const AlwaysOnTopToggle = ({ className }: AlwaysOnTopToggleProps) => {
   return (
     <div id="always-on-top" className={`space-y-2 ${className}`}>
       <Header
-        title="Always On Top Mode"
-        description="Control whether the window stays above all other applications"
+        title="窗口置顶"
+        description="设置窗口是否始终显示在其他应用上方"
         isMainTitle
       />
       <div className="flex items-center justify-between">
@@ -24,25 +24,21 @@ export const AlwaysOnTopToggle = ({ className }: AlwaysOnTopToggleProps) => {
           <div>
             <Label className="text-sm font-medium">
               {customizable.alwaysOnTop.isEnabled
-                ? "Disable Always On Top"
-                : "Enable Always On Top"}
+                ? "关闭窗口置顶"
+                : "开启窗口置顶"}
             </Label>
             <p className="text-xs text-muted-foreground mt-1">
               {customizable.alwaysOnTop.isEnabled
-                ? "Window stays above all other applications (default)"
-                : "Window behaves like normal applications"}
+                ? "窗口始终显示在其他应用上方（默认）"
+                : "窗口按普通应用方式显示"}
             </p>
           </div>
         </div>
         <Switch
           checked={customizable.alwaysOnTop.isEnabled}
           onCheckedChange={handleSwitchChange}
-          title={`Toggle to ${
-            !customizable.alwaysOnTop.isEnabled ? "Enabled" : "Disabled"
-          } always on top`}
-          aria-label={`Toggle to ${
-            customizable.alwaysOnTop.isEnabled ? "Enabled" : "Disabled"
-          } always on top`}
+          title={`${customizable.alwaysOnTop.isEnabled ? "关闭" : "开启"}窗口置顶`}
+          aria-label={`${customizable.alwaysOnTop.isEnabled ? "关闭" : "开启"}窗口置顶`}
         />
       </div>
     </div>

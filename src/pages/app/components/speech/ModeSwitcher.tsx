@@ -22,6 +22,8 @@ export const ModeSwitcher = ({
       <button
         type="button"
         onClick={() => onModeChange(true)}
+        title="根据电脑播放声音的停顿自动分段，识别后交给 AI"
+        aria-label="系统音频自动检测模式"
         disabled={disabled}
         className={cn(
           "flex-1 flex items-center justify-center gap-2 px-2.5 py-1.5 rounded-md transition-all",
@@ -32,15 +34,17 @@ export const ModeSwitcher = ({
       >
         <AudioWaveformIcon className="w-4 h-4 flex-shrink-0" />
         <div className="flex flex-col items-start">
-          <span className="text-xs font-medium leading-tight">Auto-detect</span>
+          <span className="text-xs font-medium leading-tight">自动检测</span>
           <span className="text-[9px] font-normal opacity-60 leading-tight">
-            (voice activity)
+            （检测语音活动）
           </span>
         </div>
       </button>
       <button
         type="button"
         onClick={() => onModeChange(false)}
+        title="手动开始录音，再点击停止并发送"
+        aria-label="系统音频手动录音模式"
         disabled={disabled}
         className={cn(
           "flex-1 flex items-center justify-center gap-2 px-2.5 py-1.5 rounded-md transition-all",
@@ -51,9 +55,9 @@ export const ModeSwitcher = ({
       >
         <MicIcon className="w-4 h-4 flex-shrink-0" />
         <div className="flex flex-col items-start">
-          <span className="text-xs font-medium leading-tight">Manual</span>
+          <span className="text-xs font-medium leading-tight">手动</span>
           <span className="text-[9px] font-normal opacity-60 leading-tight">
-            (press to record)
+            （按键录音）
           </span>
         </div>
       </button>

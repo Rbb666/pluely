@@ -1,5 +1,7 @@
 # Pluely v1 🚀
 
+> 本分支的中文本地版、源码构建与 Windows 安装包 CI，请参阅 [Windows 构建说明](docs/windows-build.md)。下文保留上游项目介绍。
+
 _One overlay, no tab, no trace._
 
 <a href="https://pluely.com/">

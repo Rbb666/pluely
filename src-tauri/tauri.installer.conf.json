@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Pluely Local",
+  "identifier": "com.pluely.local",
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "licenseFile": "../LICENSE",
+    "createUpdaterArtifacts": false,
+    "useLocalToolsDir": true,
+    "windows": {
+      "webviewInstallMode": {
+        "type": "fixedRuntime",
+        "path": "runtime"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese"],
+        "displayLanguageSelector": false,
+        "installerHooks": "windows/fixed-runtime.nsh"
+      }
+    }
+  },
+  "plugins": {
+    "updater": { "endpoints": [] }
+  }
+}

@@ -10,24 +10,24 @@ import {
 
 export const Theme = () => {
   const { theme, transparency, setTheme, onSetTransparency } = useTheme();
-  const { hasActiveLicense } = useApp();
+  const { hasLocalFeatures } = useApp();
 
   return (
     <div id="theme" className="relative space-y-3">
       <Header
-        title={`Theme Customization ${
-          hasActiveLicense
+        title={`外观主题 ${
+          hasLocalFeatures
             ? ""
-            : " (You need an active license to use this feature)"
+            : "（使用此功能需要有效授权）"
         }`}
-        description="Personalize your experience with custom theme and transparency settings"
+        description="自定义主题和窗口透明度"
         isMainTitle
       />
 
       {/* Theme Toggle */}
       <div
         className={`space-y-2 ${
-          hasActiveLicense ? "" : "opacity-60 pointer-events-none"
+          hasLocalFeatures ? "" : "opacity-60 pointer-events-none"
         }`}
       >
         <div className="flex items-center justify-between">
@@ -37,30 +37,32 @@ export const Theme = () => {
                 {theme === "system" ? (
                   <>
                     <MonitorIcon className="h-4 w-4" />
-                    System
+                    跟随系统
                   </>
                 ) : theme === "light" ? (
                   <>
                     <SunIcon className="h-4 w-4" />
-                    Light Mode
+                    浅色模式
                   </>
                 ) : (
                   <>
                     <MoonIcon className="h-4 w-4" />
-                    Dark Mode
+                    深色模式
                   </>
                 )}
               </Label>
               <p className="text-xs text-muted-foreground mt-1">
-                {theme === "light"
-                  ? "Using light theme for better visibility in bright environments"
-                  : "Using dark theme for comfortable viewing in low light"}
+                {theme === "system"
+                  ? "跟随系统自动切换浅色或深色主题"
+                  : theme === "light"
+                  ? "使用浅色主题，适合明亮环境"
+                  : "使用深色主题，适合昏暗环境"}
               </p>
             </div>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" title="选择浅色、深色或跟随系统主题">
                 {theme === "system" ? (
                   <MonitorIcon className="h-[1.2rem] w-[1.2rem]" />
                 ) : (
@@ -73,13 +75,13 @@ export const Theme = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setTheme("light")}>
-                Light
+                浅色
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("dark")}>
-                Dark
+                深色
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("system")}>
-                System
+                跟随系统
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -89,12 +91,12 @@ export const Theme = () => {
       {/* Transparency Slider */}
       <div
         className={`space-y-2 ${
-          hasActiveLicense ? "" : "opacity-60 pointer-events-none"
+          hasLocalFeatures ? "" : "opacity-60 pointer-events-none"
         }`}
       >
         <Header
-          title="Window Transparency"
-          description="Adjust the transparency level of the application window"
+          title="窗口透明度"
+          description="调整应用窗口的透明程度"
         />
         <div className="space-y-3">
           <div className="flex items-center gap-4 mt-4">
@@ -109,8 +111,7 @@ export const Theme = () => {
           </div>
 
           <p className="text-xs text-muted-foreground/70">
-            💡 Tip: Higher transparency lets you see through the window, perfect
-            for dark overlay. Changes apply immediately.
+            💡 提示：透明度越高，越容易看到窗口后方的内容。更改立即生效。
           </p>
         </div>
       </div>

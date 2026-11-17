@@ -39,7 +39,7 @@ export const useSystemPrompts = () => {
       setPrompts(result);
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to fetch system prompts";
+        err instanceof Error ? err.message : "加载系统提示词失败";
       setError(errorMessage);
       console.error("Error fetching system prompts:", err);
     } finally {
@@ -59,7 +59,7 @@ export const useSystemPrompts = () => {
         return result;
       } catch (err) {
         const errorMessage =
-          err instanceof Error ? err.message : "Failed to create system prompt";
+          err instanceof Error ? err.message : "创建系统提示词失败";
         setError(errorMessage);
         console.error("Error creating system prompt:", err);
         throw err;
@@ -83,7 +83,7 @@ export const useSystemPrompts = () => {
         return result;
       } catch (err) {
         const errorMessage =
-          err instanceof Error ? err.message : "Failed to update system prompt";
+          err instanceof Error ? err.message : "更新系统提示词失败";
         setError(errorMessage);
         console.error("Error updating system prompt:", err);
         throw err;
@@ -103,7 +103,7 @@ export const useSystemPrompts = () => {
         await fetchPrompts(); // Refresh list
       } catch (err) {
         const errorMessage =
-          err instanceof Error ? err.message : "Failed to delete system prompt";
+          err instanceof Error ? err.message : "删除系统提示词失败";
         setError(errorMessage);
         console.error("Error deleting system prompt:", err);
         throw err;

@@ -29,48 +29,48 @@ export const useMenuItems = () => {
   }[] = [
     {
       icon: HomeIcon,
-      label: "Dashboard",
+      label: "控制面板",
       href: "/dashboard",
     },
     {
       icon: MessagesSquare,
-      label: "Chats",
+      label: "聊天记录",
       href: "/chats",
     },
     {
       icon: WandSparkles,
-      label: "System prompts",
+      label: "系统提示词",
       href: "/system-prompts",
     },
     {
       icon: Settings,
-      label: "App Settings",
+      label: "应用设置",
       href: "/settings",
     },
     {
       icon: MessageSquareTextIcon,
-      label: "Responses",
+      label: "回复设置",
       href: "/responses",
     },
     {
       icon: MonitorIcon,
-      label: "Screenshot",
+      label: "截图",
       href: "/screenshot",
     },
     {
       icon: AudioLinesIcon,
-      label: "Audio",
+      label: "音频",
       href: "/audio",
     },
     {
       icon: SquareSlashIcon,
-      label: "Cursor & Shortcuts",
+      label: "光标与快捷键",
       href: "/shortcuts",
     },
 
     {
       icon: Code,
-      label: "Dev space",
+      label: "服务配置",
       href: "/dev-space",
     },
   ];
@@ -80,19 +80,19 @@ export const useMenuItems = () => {
       ? [
           {
             icon: MailIcon,
-            label: "Contact Support",
+            label: "联系支持",
             href: "mailto:support@pluely.com",
           },
         ]
       : []),
     {
       icon: BugIcon,
-      label: "Report a bug",
+      label: "反馈问题",
       href: "https://github.com/iamsrikanthnani/pluely/issues/new?template=bug-report.yml",
     },
     {
       icon: PowerIcon,
-      label: "Quit pluely",
+      label: "退出 Pluely",
       action: async () => {
         await invoke("exit_app");
       },
@@ -105,7 +105,7 @@ export const useMenuItems = () => {
     link: string;
   }[] = [
     {
-      title: "Website",
+      title: "官方网站",
       icon: GlobeIcon,
       link: "https://pluely.com",
     },
@@ -115,12 +115,12 @@ export const useMenuItems = () => {
       link: "https://github.com/iamsrikanthnani/pluely",
     },
     {
-      title: "Buy Me a Coffee",
+      title: "支持作者",
       icon: CoffeeIcon,
       link: "https://buymeacoffee.com/srikanthnani",
     },
     {
-      title: "Follow on X",
+      title: "在 X 上关注",
       icon: XIcon,
       link: "https://x.com/srikanthnani",
     },

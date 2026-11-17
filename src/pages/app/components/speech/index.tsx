@@ -56,6 +56,7 @@ export const SystemAudio = (props: useSystemAudioType) => {
     setShowQuickActions,
     handleQuickActionClick,
     vadConfig,
+    isUpdatingVadConfig,
     updateVadConfiguration,
     isRecordingInContinuousMode,
     recordingProgress,
@@ -65,7 +66,7 @@ export const SystemAudio = (props: useSystemAudioType) => {
     scrollAreaRef,
   } = props;
 
-  const { hasActiveLicense, supportsImages } = useApp();
+  const { hasLocalFeatures, supportsImages } = useApp();
 
   // View mode toggle
   const [conversationMode, setConversationMode] = useState(false);
@@ -165,11 +166,11 @@ export const SystemAudio = (props: useSystemAudioType) => {
   };
 
   const getButtonTitle = () => {
-    if (setupRequired) return "Setup required - Click for instructions";
-    if (error && !setupRequired) return `Error: ${error}`;
-    if (isProcessing) return "Transcribing audio...";
-    if (capturing) return "Stop system audio capture";
-    return "Start system audio capture";
+    if (setupRequired) return "需要配置，点击查看说明";
+    if (error && !setupRequired) return `错误：${error}`;
+    if (isProcessing) return "正在识别语音…";
+    if (capturing) return "结束系统音频会话（未发送的录音将丢弃）";
+    return "采集电脑播放的声音（不是麦克风）";
   };
 
   return (
@@ -186,6 +187,8 @@ export const SystemAudio = (props: useSystemAudioType) => {
         <Button
           size="icon"
           title={getButtonTitle()}
+          aria-label={getButtonTitle()}
+          disabled={isUpdatingVadConfig}
           onClick={handleToggleCapture}
           className={cn(
             capturing && "bg-green-50 hover:bg-green-100",
@@ -214,19 +217,20 @@ export const SystemAudio = (props: useSystemAudioType) => {
                     onModeChange={handleModeChange}
                     disabled={
                       isRecordingInContinuousMode ||
+                      isUpdatingVadConfig ||
                       isProcessing ||
                       isAIProcessing
                     }
                   />
                 )}
                 {setupRequired && (
-                  <h2 className="font-semibold text-sm">Setup Required</h2>
+                  <h2 className="font-semibold text-sm">需要配置</h2>
                 )}
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {/* Screenshot Button */}
-                  {hasActiveLicense && !setupRequired && supportsImages && (
+                  {hasLocalFeatures && !setupRequired && supportsImages && (
                     <Button
                       size="sm"
                       variant={screenshotImage ? "default" : "outline"}
@@ -236,14 +240,15 @@ export const SystemAudio = (props: useSystemAudioType) => {
                         "h-6 text-[10px] gap-1 px-2",
                         screenshotImage && "bg-primary text-primary-foreground"
                       )}
-                      title="Capture screenshot to include with transcription"
+                      title="截取屏幕，与语音识别结果一同发送"
+                      aria-label="截取屏幕，与语音识别结果一同发送"
                     >
                       {isCapturingScreenshot ? (
                         <LoaderIcon className="w-3 h-3 animate-spin" />
                       ) : (
                         <CameraIcon className="w-3 h-3" />
                       )}
-                      Screenshot
+                      截图
                     </Button>
                   )}
 
@@ -254,10 +259,26 @@ export const SystemAudio = (props: useSystemAudioType) => {
                       variant="ghost"
                       onClick={startNewConversation}
                       className="h-6 text-[10px] gap-1 px-2"
-                      title="Start a new conversation"
+                      title="开始新对话"
+                      aria-label="开始新对话"
                     >
                       <PlusIcon className="w-3 h-3" />
-                      New
+                      新对话
+                    </Button>
+                  )}
+
+                  {capturing && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs px-2"
+                      disabled={isUpdatingVadConfig}
+                      title="结束会话并丢弃尚未发送的录音；不会将本段提交识别"
+                      aria-label="结束系统音频会话"
+                      onClick={stopCapture}
+                    >
+                      <XIcon className="h-3.5 w-3.5" />
+                      结束会话
                     </Button>
                   )}
 
@@ -267,7 +288,8 @@ export const SystemAudio = (props: useSystemAudioType) => {
                       size="icon"
                       variant="ghost"
                       className="h-6 w-6"
-                      title="Close"
+                      title="关闭"
+                      aria-label="关闭系统音频面板"
                       onClick={() => {
                         setIsPopoverOpen(false);
                         resizeWindow(false);
@@ -278,6 +300,13 @@ export const SystemAudio = (props: useSystemAudioType) => {
                   )}
                 </div>
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                输入来源：电脑播放的声音（扬声器/耳机），不含麦克风。
+                对着麦克风说话请先结束本会话，再点击麦克风图标。
+              </p>
+              {isUpdatingVadConfig && (
+                <p className="mt-1 text-xs text-muted-foreground">正在切换录音设置…</p>
+              )}
             </div>
 
             <ScrollArea className="flex-1 min-h-0" ref={scrollAreaRef}>
@@ -287,21 +316,23 @@ export const SystemAudio = (props: useSystemAudioType) => {
                   <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
                     <img
                       src={`data:image/png;base64,${screenshotImage}`}
-                      alt="Screenshot"
+                      alt="截图"
                       className="h-12 w-20 object-cover rounded"
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] font-medium">
-                        Screenshot attached
+                        已添加截图
                       </p>
                       <p className="text-[9px] text-muted-foreground">
-                        Will be sent with next transcription
+                        将与下一条语音识别结果一同发送
                       </p>
                     </div>
                     <Button
                       size="icon"
                       variant="ghost"
                       className="h-5 w-5"
+                      title="移除本次附带的截图"
+                      aria-label="移除本次附带的截图"
                       onClick={handleRemoveScreenshot}
                     >
                       <XIcon className="h-3 w-3" />
@@ -315,7 +346,7 @@ export const SystemAudio = (props: useSystemAudioType) => {
                     <AlertCircleIcon className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="text-[10px] font-medium text-red-800">
-                        Error
+                        错误
                       </p>
                       <p className="text-[10px] text-red-700">{error}</p>
                     </div>
@@ -342,6 +373,7 @@ export const SystemAudio = (props: useSystemAudioType) => {
                       isAIProcessing={isAIProcessing}
                       recordingProgress={recordingProgress}
                       maxDuration={vadConfig.max_recording_duration_secs}
+                      disabled={isUpdatingVadConfig}
                       onStartRecording={startContinuousRecording}
                       onStopAndSend={manualStopAndSend}
                       onIgnore={ignoreContinuousRecording}

@@ -142,7 +142,7 @@ export const PluelyApiSetup = () => {
 
   const handleActivateLicense = async () => {
     if (!licenseKey.trim()) {
-      setError("Please enter a license key");
+      setError("请输入授权密钥");
       return;
     }
 
@@ -173,7 +173,7 @@ export const PluelyApiSetup = () => {
           ],
         });
 
-        setSuccess("License activated successfully!");
+        setSuccess("授权已激活！");
         setLicenseKey(""); // Clear the input
 
         // Auto-enable Pluely API when license is activated
@@ -185,11 +185,11 @@ export const PluelyApiSetup = () => {
         await fetchModels();
         await getActiveLicenseStatus();
       } else {
-        setError(response.error || "Failed to activate license");
+        setError(response.error || "激活授权失败");
       }
     } catch (err) {
       console.error("License activation failed:", err);
-      setError(typeof err === "string" ? err : "Failed to activate license");
+      setError(typeof err === "string" ? err : "激活授权失败");
     } finally {
       setIsLoading(false);
     }
@@ -210,7 +210,7 @@ export const PluelyApiSetup = () => {
         ],
       });
 
-      setSuccess("License removed successfully!");
+      setSuccess("授权已移除！");
 
       // Disable Pluely API when license is removed
       setPluelyApiEnabled(false);
@@ -218,8 +218,8 @@ export const PluelyApiSetup = () => {
       await fetchModels();
       await loadLicenseStatus(); // Reload status
     } catch (err) {
-      console.error("Failed to remove license:", err);
-      setError("Failed to remove license");
+      console.error("移除授权失败:", err);
+      setError("移除授权失败");
     } finally {
       setIsLoading(false);
       await invoke("deactivate_license_api");
@@ -248,7 +248,7 @@ export const PluelyApiSetup = () => {
       });
     } catch (error) {
       console.error("Failed to save model selection:", error);
-      setError("Failed to save model selection.");
+      setError("保存模型选择失败。");
     }
   };
 
@@ -276,23 +276,21 @@ export const PluelyApiSetup = () => {
   } else if (capitalizedProviders.length === 1) {
     providerList = capitalizedProviders[0];
   } else if (capitalizedProviders.length === 2) {
-    providerList = capitalizedProviders.join(" and ");
+    providerList = capitalizedProviders.join("和");
   } else {
     const lastProvider = capitalizedProviders.pop();
-    providerList = `${capitalizedProviders.join(", ")}, and ${lastProvider}`;
+    providerList = `${capitalizedProviders.join("、")}和${lastProvider}`;
   }
 
   const title = isModelsLoading
-    ? "Loading Models..."
-    : `Pluely supports ${models?.length} model${
-        models?.length !== 1 ? "s" : ""
-      }`;
+    ? "正在加载模型…"
+    : `Pluely 支持 ${models?.length} 个模型`;
 
   const description = isModelsLoading
-    ? "Fetching the list of supported models..."
+    ? "正在获取支持的模型列表…"
     : providerList
-    ? `Access top models from providers like ${providerList}. and select smaller models for faster responses.`
-    : "Explore all the models Pluely supports.";
+    ? `可使用 ${providerList} 等服务商的模型。选择较小的模型可获得更快的响应。`
+    : "查看 Pluely 支持的全部模型。";
 
   return (
     <div id="pluely-api" className="space-y-3 -mt-2">
@@ -327,7 +325,7 @@ export const PluelyApiSetup = () => {
               variant="outline"
               className="h-11 text-start shadow-none w-full"
             >
-              {selectedModel ? selectedModel.name : "Select pro models"}{" "}
+              {selectedModel ? selectedModel.name : "选择云端模型"}{" "}
               <ChevronDown />
             </Button>
           </PopoverTrigger>
@@ -338,7 +336,7 @@ export const PluelyApiSetup = () => {
           >
             <Command shouldFilter={true}>
               <CommandInput
-                placeholder="Select model..."
+                placeholder="搜索并选择模型…"
                 value={searchValue}
                 onValueChange={setSearchValue}
               />
@@ -347,7 +345,7 @@ export const PluelyApiSetup = () => {
                 className="rounded-xl h-full overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/30"
               >
                 <CommandEmpty>
-                  No models found. Please try again later.
+                  未找到模型，请稍后重试。
                 </CommandEmpty>
                 <CommandGroup className="h-full rounded-xl">
                   {models.map((model, index) => (
@@ -369,7 +367,7 @@ export const PluelyApiSetup = () => {
                             </div>
                           ) : (
                             <div className="text-xs text-red-600 bg-white rounded-full px-2">
-                              Not Available
+                              暂不可用
                             </div>
                           )}
                         </div>
@@ -391,8 +389,8 @@ export const PluelyApiSetup = () => {
         {selectedModel && (
           <div className="text-xs text-amber-500 bg-amber-500/10 p-3 rounded-md">
             {selectedModel.modality?.includes("image")
-              ? "This model accepts both text and images as input and generates text responses."
-              : "⚠️ This model ONLY accepts text input. Do NOT upload images - they will not work with this model. Use a text+image→text model if you need image support."}
+              ? "此模型支持文字和图片输入，并生成文字回复。"
+              : "⚠️ 此模型仅支持文字输入，无法处理图片。如需分析图片，请选择支持图片输入的模型。"}
           </div>
         )}
         {/* License Key Input or Display */}
@@ -400,16 +398,15 @@ export const PluelyApiSetup = () => {
           {!storedLicenseKey ? (
             <>
               <div className="space-y-1">
-                <label className="text-sm font-medium">License Key</label>
+                <label className="text-sm font-medium">授权密钥</label>
                 <p className="text-sm font-medium text-muted-foreground">
-                  After completing your purchase, you'll receive a license key
-                  via email. Paste it below to activate.
+                  购买后，你会通过电子邮件收到授权密钥。粘贴到下方即可激活。
                 </p>
               </div>
               <div className="flex gap-2">
                 <Input
                   type="password"
-                  placeholder="Enter your license key (e.g., 38b1460a-5104-4067-a91d-77b872934d51)"
+                  placeholder="请输入授权密钥"
                   value={licenseKey}
                   onChange={(value) => {
                     setLicenseKey(
@@ -427,7 +424,7 @@ export const PluelyApiSetup = () => {
                   disabled={isLoading || !licenseKey.trim()}
                   size="icon"
                   className="shrink-0 h-11 w-11"
-                  title="Activate License"
+                  title="激活授权"
                 >
                   {isLoading ? (
                     <LoaderIcon className="h-4 w-4 animate-spin" />
@@ -440,7 +437,7 @@ export const PluelyApiSetup = () => {
           ) : (
             <>
               <label className="text-xs lg:text-sm font-medium">
-                Current License
+                当前授权
               </label>
               <div className="flex gap-2">
                 <Input
@@ -455,7 +452,7 @@ export const PluelyApiSetup = () => {
                   size="icon"
                   variant="destructive"
                   className="shrink-0 h-11 w-11"
-                  title="Remove License"
+                  title="移除授权"
                 >
                   {isLoading ? (
                     <LoaderIcon className="h-4 w-4 animate-spin" />
@@ -467,7 +464,7 @@ export const PluelyApiSetup = () => {
               {storedLicenseKey ? (
                 <div className="-mt-1">
                   <p className="text-sm font-medium text-muted-foreground select-auto">
-                    If you need any help or any assistance, contact
+                    如需帮助，请联系
                     support@pluely.com
                   </p>
                 </div>
@@ -478,13 +475,13 @@ export const PluelyApiSetup = () => {
       </div>
       <div className="flex justify-between items-center">
         <Header
-          title={`${pluelyApiEnabled ? "Disable" : "Enable"} Pluely API`}
+          title={`${pluelyApiEnabled ? "关闭" : "启用"} Pluely API`}
           description={
             storedLicenseKey
               ? pluelyApiEnabled
-                ? "Using all pluely APIs for audio, and chat."
-                : "Using all your own AI Providers for audio, and chat."
-              : "A valid license is required to enable Pluely API or you can use your own AI Providers and STT Providers."
+                ? "音频识别和聊天均使用 Pluely API。"
+                : "音频识别和聊天使用你配置的服务。"
+              : "启用 Pluely API 需要有效授权；你也可以配置自己的 AI 和语音识别服务。"
           }
         />
         <Switch

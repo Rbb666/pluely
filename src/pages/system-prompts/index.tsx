@@ -118,7 +118,7 @@ const SystemPrompts = () => {
       setForm({ name: "", prompt: "" });
       setIsCreateEditDialogOpen(false);
     } catch (err) {
-      console.error("Failed to save prompt:", err);
+      console.error("保存提示词失败：", err);
     } finally {
       setIsSaving(false);
     }
@@ -165,8 +165,8 @@ const SystemPrompts = () => {
 
   return (
     <PageLayout
-      title="System Prompts"
-      description="Manage your AI behavior profiles and create new ones"
+      title="系统提示词"
+      description="创建和管理 AI 行为与角色配置"
     >
       {/* Error Display */}
       {error && (
@@ -180,7 +180,7 @@ const SystemPrompts = () => {
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search system prompts..."
+            placeholder="搜索系统提示词…"
             className="pl-9 focus-visible:ring-0 focus-visible:ring-offset-0"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -188,15 +188,15 @@ const SystemPrompts = () => {
         </div>
         <Button variant="default" size="default" onClick={handleCreateClick}>
           <PlusIcon className="size-4" />
-          Create New
+          新建
         </Button>
       </div>
       {filteredPrompts.length === 0 ? (
         <Empty
           isLoading={isLoading}
           icon={WandSparklesIcon}
-          title="No prompts found"
-          description="Create a new prompt to get started"
+          title="暂无提示词"
+          description="创建一个提示词即可开始使用"
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 pb-4">
@@ -252,7 +252,7 @@ const SystemPrompts = () => {
                         }}
                       >
                         <Pencil className="size-4 mr-2" />
-                        Edit
+                        编辑
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         variant="destructive"
@@ -262,7 +262,7 @@ const SystemPrompts = () => {
                         }}
                       >
                         <Trash2 className="size-4 mr-2" />
-                        Delete
+                        删除
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

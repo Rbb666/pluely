@@ -48,8 +48,8 @@ const Dashboard = () => {
 
   return (
     <PageLayout
-      title="Dashboard"
-      description="Pluely license to unlock faster responses, quicker support and premium features."
+      title="控制面板"
+      description="本地功能已解锁。你可以配置自己的 AI 和语音识别服务，也可以激活授权以使用 Pluely 云端 API。"
       rightSlot={!hasActiveLicense ? <GetLicense /> : null}
     >
       {/* Pluely API Setup */}

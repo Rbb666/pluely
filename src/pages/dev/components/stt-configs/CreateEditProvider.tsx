@@ -47,7 +47,7 @@ export const CreateEditProvider = ({
           className="w-full h-11 border-1 border-input/50 focus:border-primary/50 transition-colors"
         >
           <PlusIcon className="h-4 w-4 mr-2" />
-          Add Custom STT Provider
+          添加自定义语音识别服务
         </Button>
       ) : (
         <Card className="p-4 border border-input/50 bg-transparent">
@@ -55,10 +55,10 @@ export const CreateEditProvider = ({
             <Header
               title={
                 editingProvider
-                  ? `Edit STT Provider`
-                  : "Add Custom STT Provider"
+                  ? "编辑语音识别服务"
+                  : "添加自定义语音识别服务"
               }
-              description="Create a custom STT provider to use with your STT-powered applications."
+              description="添加自定义语音识别服务，配置接口和响应格式。"
             />
             <div className="w-[120px]">
               <Selection
@@ -66,11 +66,11 @@ export const CreateEditProvider = ({
                   ?.filter((provider) => !provider?.isCustom)
                   .map((provider) => {
                     return {
-                      label: provider?.id || "STT Provider",
+                      label: provider?.id || "语音识别服务",
                       value: provider?.id || "STT Provider",
                     };
                   })}
-                placeholder={"Auto-fill"}
+                placeholder={"自动填写"}
                 onChange={(value) => {
                   handleAutoFill(value);
                 }}
@@ -82,8 +82,8 @@ export const CreateEditProvider = ({
             {/* Basic Configuration */}
             <div className="space-y-1">
               <Header
-                title="Curl Command *"
-                description="The curl command to use with the STT provider."
+                title="cURL 命令 *"
+                description="用于调用语音识别服务的 cURL 命令。"
               />
               <Textarea
                 className={cn(
@@ -107,22 +107,19 @@ export const CreateEditProvider = ({
               <div className="bg-muted/50 p-4 rounded-lg space-y-4">
                 <div className="bg-card border p-3 rounded-lg">
                   <p className="text-sm font-medium text-primary mb-2">
-                    💡 Important: You can add custom variables or directly
-                    include your API keys/values
+                    💡 提示：可以使用自定义变量，也可以直接填写 API 密钥或参数值
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    No need to enter variables separately when selecting the
-                    provider - you can embed them directly in the curl command
-                    (e.g., replace YOUR_API_KEY with your actual key or use{" "}
+                    可直接在 cURL 命令中填写参数，无需选择服务后再次输入。例如，将 YOUR_API_KEY 替换为真实密钥，或使用{" "}
                     <code className="bg-muted px-1 rounded text-xs">
                       {"{{MODEL}}"}
                     </code>{" "}
-                    for model name).
+                    表示模型名称。
                   </p>
                 </div>
 
                 <h4 className="text-sm font-semibold text-foreground">
-                  ⚠️ Required Variables for STT Providers:
+                  ⚠️ 语音识别服务使用的变量：
                 </h4>
                 <div className="grid grid-cols-1 gap-3 text-sm">
                   <div className="flex items-center gap-3 p-3 bg-card border rounded-lg">
@@ -130,40 +127,36 @@ export const CreateEditProvider = ({
                       {"{{AUDIO}}"}
                     </code>
                     <span className="text-foreground font-medium">
-                      → REQUIRED: Base64 encoded audio data or audio file as wav
-                      file if you are using multipart/form-data (using -F or
-                      --form)
+                      → 必填：Base64 编码音频数据；使用 multipart/form-data（-F 或 --form）时为 WAV 音频文件
                     </span>
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    <strong className="text-foreground">Quick Setup:</strong>{" "}
-                    Replace{" "}
+                    <strong className="text-foreground">快速配置：</strong>{" "}
+                    将{" "}
                     <code className="bg-muted px-1 rounded text-xs">
                       YOUR_API_KEY
                     </code>{" "}
-                    with your actual API key directly in the curl command.
+                    直接替换为真实 API 密钥。
                   </p>
                   <p className="text-sm text-muted-foreground">
                     <strong className="text-foreground">
-                      Custom Variables:
+                      自定义变量：
                     </strong>{" "}
-                    You can add your own variables using the same{" "}
+                    可以按照相同的{" "}
                     <code className="bg-muted px-1 rounded text-xs">
                       {"{{VARIABLE_NAME}}"}
                     </code>{" "}
-                    format and they'll be available for configuration when you
-                    select this provider.
+                    格式添加变量，选择此服务后即可配置。
                   </p>
                   <p className="text-xs text-muted-foreground italic">
-                    💡 Tip: The{" "}
+                    💡 提示：{" "}
                     <code className="bg-muted px-1 rounded text-xs">
                       {"{{AUDIO}}"}
                     </code>{" "}
-                    variable is essential for STT functionality - make sure it's
-                    properly included in your curl command.
+                    变量是语音识别的必需参数，请确保 cURL 命令中已正确包含该变量。
                   </p>
                 </div>
               </div>
@@ -173,8 +166,8 @@ export const CreateEditProvider = ({
           <div className="space-y-0">
             <div className="flex justify-between items-center space-x-2">
               <Header
-                title="Streaming"
-                description="streaming is used to stream the response from the AI provider."
+                title="流式输出"
+                description="逐步接收并显示 AI 服务生成的回复。"
               />
               <Switch
                 checked={formData.streaming}
@@ -188,15 +181,14 @@ export const CreateEditProvider = ({
               />
             </div>
             <span className="text-xs italic text-red-500">
-              Streaming is not supported for STT providers. it will be fixed in
-              the future.
+              目前语音识别服务暂不支持流式输出。
             </span>
           </div>
           {/* Response Configuration */}
           <div className="space-y-2">
             <Header
-              title="Response Content Path *"
-              description="The path to extract content from the API response."
+              title="响应内容路径 *"
+              description="从 API 响应中提取正文内容的路径。"
             />
 
             <TextInput
@@ -209,7 +201,7 @@ export const CreateEditProvider = ({
                 }))
               }
               error={errors.responseContentPath}
-              notes="The path to extract content from the API response. Examples: text, transcript, results[0].alternatives[0].transcript"
+              notes="从 API 响应中提取文字的路径。例如：text、transcript、results[0].alternatives[0].transcript"
             />
           </div>
 
@@ -219,7 +211,7 @@ export const CreateEditProvider = ({
               onClick={() => setShowForm(!showForm)}
               className="h-11 border-1 border-input/50 focus:border-primary/50 transition-colors"
             >
-              Cancel
+              取消
             </Button>
             <Button
               onClick={handleSave}
@@ -230,11 +222,11 @@ export const CreateEditProvider = ({
               )}
             >
               {errors.curl ? (
-                "Invalid cURL, try again"
+                "cURL 命令无效，请修改"
               ) : (
                 <>
                   <SaveIcon className="h-4 w-4 mr-2" />
-                  {editingProvider ? "Update" : "Save"} Provider
+                  {editingProvider ? "更新" : "保存"} 服务
                 </>
               )}
             </Button>

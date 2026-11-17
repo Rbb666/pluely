@@ -1,4 +1,5 @@
-import { Loader2, XIcon } from "lucide-react";
+import { Loader2, XIcon, ShieldCheckIcon, ShieldAlertIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import {
   Popover,
   PopoverContent,
@@ -12,13 +13,18 @@ import {
 } from "@/components";
 import { UseCompletionReturn } from "@/types";
 import { MessageHistory } from "./MessageHistory";
+import { ProtectedPinyinInput } from "@/components/ProtectedPinyinInput";
+import { safeLocalStorage } from "@/lib/storage";
+import { STORAGE_KEYS } from "@/config";
 
 export const Input = ({
   isPopoverOpen,
   isLoading,
+  enableVAD,
   reset,
   input,
   setInput,
+  submit,
   handleKeyPress,
   handlePaste,
   currentConversationId,
@@ -34,33 +40,90 @@ export const Input = ({
   isHidden,
   keepEngaged,
   setKeepEngaged,
+  resizeWindow,
+  micOpen,
+  isFilesPopoverOpen,
 }: UseCompletionReturn & { isHidden: boolean }) => {
+  const [protectedPinyin, setProtectedPinyin] = useState(() =>
+    safeLocalStorage.getItem(STORAGE_KEYS.PROTECTED_PINYIN) !== "false"
+  );
+  const [candidatesOpen, setCandidatesOpen] = useState(false);
+  const [pinyinComposing, setPinyinComposing] = useState(false);
+  const didMount = useRef(false);
+  useEffect(() => {
+    if (!didMount.current) { didMount.current = true; return; }
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [protectedPinyin, inputRef]);
+  useEffect(() => {
+    void resizeWindow(candidatesOpen || isPopoverOpen || micOpen || messageHistoryOpen || isFilesPopoverOpen);
+  }, [candidatesOpen, isPopoverOpen, micOpen, messageHistoryOpen, isFilesPopoverOpen, resizeWindow]);
+
+  const inputClass = currentConversationId && conversationHistory.length > 0 ? "pr-14" : "pr-2";
+  const inputDisabled = isLoading || isHidden || enableVAD;
+
   return (
     <div className="relative flex-1">
       <Popover
-        open={isPopoverOpen}
+        open={isPopoverOpen && !candidatesOpen}
         onOpenChange={(open) => {
-          if (!open && !isLoading && !keepEngaged) {
+          if (!open && !candidatesOpen && !isLoading && !keepEngaged) {
             reset();
           }
         }}
       >
         <PopoverTrigger asChild className="!border-none !bg-transparent">
-          <div className="relative select-none">
-            <InputComponent
-              ref={inputRef}
-              placeholder="Ask me anything..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              onPaste={handlePaste}
-              disabled={isLoading || isHidden}
-              className={`${
-                currentConversationId && conversationHistory.length > 0
-                  ? "pr-14"
-                  : "pr-2"
-              }`}
-            />
+          <div id="main-chat-input" className="relative flex items-center gap-1 select-none">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className={`size-7 shrink-0 ${protectedPinyin ? "text-emerald-600" : "text-amber-600"}`}
+              disabled={inputDisabled || pinyinComposing}
+              aria-pressed={protectedPinyin}
+              title={pinyinComposing ? "请先选字或按 Esc 清除拼音，再切换输入方式" : protectedPinyin
+                ? "当前使用应用内拼音，候选显示在应用内；点击切换为系统输入法"
+                : "当前使用系统输入法，候选窗可能被共享；点击启用应用内拼音"}
+              aria-label={protectedPinyin ? "切换为系统输入法" : "启用应用内拼音"}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                inputRef.current?.blur();
+                setCandidatesOpen(false);
+                const next = !protectedPinyin;
+                setProtectedPinyin(next);
+                safeLocalStorage.setItem(STORAGE_KEYS.PROTECTED_PINYIN, String(next));
+              }}
+            >
+              {protectedPinyin ? <ShieldCheckIcon className="size-4" /> : <ShieldAlertIcon className="size-4" />}
+            </Button>
+            <div className="min-w-0 flex-1">
+              {protectedPinyin ? (
+                <ProtectedPinyinInput
+                  inputRef={inputRef}
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={() => { void submit(); }}
+                  onPaste={handlePaste}
+                  disabled={inputDisabled}
+                  placeholder="输入拼音，空格选字…"
+                  className={inputClass}
+                  onCandidatesOpenChange={setCandidatesOpen}
+                  onCompositionActiveChange={setPinyinComposing}
+                />
+              ) : (
+                <InputComponent
+                  ref={inputRef}
+                  placeholder="输入你的问题（系统候选窗可能被共享）…"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  onPaste={handlePaste}
+                  disabled={inputDisabled}
+                  className={inputClass}
+                />
+              )}
+            </div>
 
             {/* Conversation thread indicator */}
             {currentConversationId &&
@@ -96,16 +159,16 @@ export const Input = ({
           <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
             <div className="flex flex-row gap-1 items-center">
               <h3 className="font-semibold text-xs select-none">
-                {keepEngaged ? "Conversation Mode" : "AI Response"}
+                {keepEngaged ? "连续对话" : "AI 回复"}
               </h3>
               <div className="text-[10px] text-muted-foreground/70">
-                (Use arrow keys to scroll)
+                （使用方向键滚动）
               </div>
             </div>
             <div className="flex items-center gap-2 select-none">
               <div className="flex flex-row items-center gap-2 mr-2">
-                <p className="text-[10px]">{`Toggle ${
-                  keepEngaged ? "AI response" : "conversation mode"
+                <p className="text-[10px]">{`切换到${
+                  keepEngaged ? "AI 回复" : "连续对话"
                 }`}</p>
                 <span className="text-[10px] text-muted-foreground/60 bg-muted/30 px-1 py-0 rounded border border-input/50">
                   {navigator.platform.toLowerCase().includes("mac")
@@ -115,6 +178,8 @@ export const Input = ({
                 </span>
                 <Switch
                   checked={keepEngaged}
+                  title={keepEngaged ? "关闭连续对话，单独显示本次回复" : "开启连续对话，保留上下文"}
+                  aria-label="切换连续对话模式"
                   onCheckedChange={(checked) => {
                     setKeepEngaged(checked);
                     // Focus input after toggle
@@ -142,10 +207,10 @@ export const Input = ({
                 className="cursor-pointer"
                 title={
                   isLoading
-                    ? "Cancel loading"
+                    ? "停止生成"
                     : keepEngaged
-                    ? "Close and start new conversation"
-                    : "Clear conversation"
+                    ? "关闭并开始新对话"
+                    : "清空对话"
                 }
               >
                 <XIcon />
@@ -157,13 +222,13 @@ export const Input = ({
             <div className="p-4">
               {error && (
                 <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
-                  <strong>Error:</strong> {error}
+                  <strong>错误：</strong> {error}
                 </div>
               )}
               {isLoading && (
                 <div className="flex items-center gap-2 my-4 text-muted-foreground animate-pulse select-none">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Generating response...</span>
+                  <span className="text-sm">正在生成回复…</span>
                 </div>
               )}
               {response && <Markdown>{response}</Markdown>}
@@ -188,14 +253,15 @@ export const Input = ({
                         >
                           <div className="flex items-center gap-2 mb-2">
                             <span className="text-xs font-medium text-muted-foreground uppercase">
-                              {message.role === "user" ? "You" : "AI"}
+                              {message.role === "user" ? "你" : "AI"}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {new Date(message.timestamp).toLocaleTimeString(
-                                [],
+                                "zh-CN",
                                 {
                                   hour: "2-digit",
                                   minute: "2-digit",
+                                  hour12: false,
                                 }
                               )}
                             </span>

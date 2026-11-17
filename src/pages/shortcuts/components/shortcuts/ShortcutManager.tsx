@@ -16,7 +16,7 @@ import { useApp } from "@/contexts";
 import { ShortcutRecorder } from "./ShortcutRecorder";
 
 export const ShortcutManager = () => {
-  const { hasActiveLicense } = useApp();
+  const { hasLocalFeatures } = useApp();
   const [actions, setActions] = useState<ShortcutAction[]>([]);
   const [bindings, setBindings] = useState<Record<string, ShortcutBinding>>({});
   const [editingAction, setEditingAction] = useState<string | null>(null);
@@ -25,11 +25,11 @@ export const ShortcutManager = () => {
 
   useEffect(() => {
     loadShortcuts();
-  }, [hasActiveLicense]);
+  }, [hasLocalFeatures]);
 
   const loadShortcuts = () => {
     const config = getShortcutsConfig();
-    const allActions = getAllShortcutActions(hasActiveLicense);
+    const allActions = getAllShortcutActions(hasLocalFeatures);
     setActions(allActions);
     setBindings(config.bindings);
   };
@@ -54,7 +54,7 @@ export const ShortcutManager = () => {
     const conflict = checkShortcutConflicts(key, actionId);
     if (conflict) {
       setConflicts([
-        `Shortcut "${key}" is already used by: ${conflict.actions
+        `快捷键“${key}”已被占用： ${conflict.actions
           .map((id) => actions.find((a) => a.id === id)?.name)
           .join(", ")}`,
       ]);
@@ -90,8 +90,8 @@ export const ShortcutManager = () => {
         config: { bindings: updatedBindings },
       });
     } catch (error) {
-      console.error("Failed to apply shortcuts:", error);
-      setConflicts([`Failed to apply shortcuts: ${error}`]);
+      console.error("应用快捷键失败：", error);
+      setConflicts([`应用快捷键失败： ${error}`]);
     } finally {
       setIsApplying(false);
     }
@@ -111,8 +111,8 @@ export const ShortcutManager = () => {
       // Reload to ensure fresh state
       loadShortcuts();
     } catch (error) {
-      console.error("Failed to reset shortcuts:", error);
-      setConflicts(["Failed to reset shortcuts. Please try again."]);
+      console.error("重置快捷键失败：", error);
+      setConflicts(["重置快捷键失败，请重试。"]);
     } finally {
       setIsApplying(false);
     }
@@ -125,17 +125,16 @@ export const ShortcutManager = () => {
         <div>
           <h3 className="text-md lg:text-lg font-semibold flex items-center gap-2">
             <Keyboard className="size-5 lg:size-5" />
-            Keyboard Shortcuts
+            键盘快捷键
           </h3>
           <p className="text-sm text-muted-foreground">
-            {actions.length} shortcut{actions.length !== 1 ? "s" : ""}{" "}
-            configured
-            {!hasActiveLicense && " • Get a license to customize shortcuts"}
+            已配置 {actions.length} 个快捷键
+            {!hasLocalFeatures && "• 获得授权后可自定义快捷键"}
           </p>
         </div>
         <div className="flex gap-2">
           {/* COMMENTED OUT: Custom shortcut creation */}
-          {/* {hasActiveLicense && (
+          {/* {hasLocalFeatures && (
             <Button
               size="sm"
               variant="default"
@@ -152,10 +151,10 @@ export const ShortcutManager = () => {
             variant="outline"
             onClick={handleReset}
             disabled={isApplying}
-            title="Reset all shortcuts to platform defaults"
+            title="将所有快捷键恢复为当前系统默认值"
           >
             <RotateCcw className="size-3 lg:size-4" />
-            Reset
+            重置
           </Button>
         </div>
       </div>
@@ -177,20 +176,19 @@ export const ShortcutManager = () => {
       )}
 
       {/* License Prompt for Non-Licensed Users */}
-      {!hasActiveLicense && (
+      {!hasLocalFeatures && (
         <Card className="p-4 bg-primary/5 border-primary/20">
           <div className="flex items-start gap-3">
             <Lock className="size-4 lg:size-5 text-primary mt-0.5" />
             <div className="flex-1 space-y-2">
               <p className="text-xs lg:text-sm font-medium">
-                Unlock Shortcut Customization
+                解锁快捷键自定义
               </p>
               <p className="text-[10px] lg:text-xs text-muted-foreground">
-                You can enable/disable shortcuts, but need a active license to
-                customize the key bindings.
+                可开启或关闭快捷键，自定义组合键需要有效授权。
               </p>
               <GetLicense
-                buttonText="Get License"
+                buttonText="获取授权"
                 buttonClassName="w-full mt-2"
               />
             </div>
@@ -206,7 +204,7 @@ export const ShortcutManager = () => {
             key: getPlatformDefaultKey(action),
             enabled: true,
           };
-          const isLocked = !hasActiveLicense;
+          const isLocked = !hasLocalFeatures;
           const isEditing = editingAction === action.id;
 
           return (
@@ -284,11 +282,11 @@ export const ShortcutManager = () => {
                       className="min-w-[80px]"
                       title={
                         isLocked
-                          ? "License required to customize"
-                          : "Change this shortcut"
+                          ? "自定义需要授权"
+                          : "修改此快捷键"
                       }
                     >
-                      Change
+                      修改
                     </Button>
                   </div>
                 </div>
@@ -300,7 +298,7 @@ export const ShortcutManager = () => {
 
       {/* Footer Note */}
       <p className="text-xs text-muted-foreground text-center pt-2">
-        💡 Shortcuts work globally, even when the app is hidden
+        💡 快捷键全局有效，即使应用隐藏后仍可使用
       </p>
     </div>
   );

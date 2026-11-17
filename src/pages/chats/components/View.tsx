@@ -36,7 +36,7 @@ import {
 
 const View = () => {
   const { conversationId } = useParams();
-  const { hasActiveLicense, supportsImages } = useApp();
+  const { hasLocalFeatures, supportsImages } = useApp();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatConversation | null>(null);
 
@@ -86,12 +86,12 @@ const View = () => {
       isMainTitle={false}
       allowBackButton={true}
       title={messages?.title || ""}
-      description={`${messages?.messages.length} messages in this conversation`}
+      description={`共 ${messages?.messages.length ?? 0} 条消息`}
       rightSlot={
         <div className="flex flex-row items-center gap-2">
           <Button
             variant="outline"
-            title="Open this conversation in overlay"
+            title="在悬浮窗中打开此对话"
             className="text-[10px] lg:text-sm h-6 lg:h-8"
             onClick={() =>
               conversationId && handleAttachToOverlay(conversationId)
@@ -101,18 +101,18 @@ const View = () => {
             {isAttached ? (
               <>
                 <Check className="size-3 lg:size-4 text-green-600" />
-                Attached
+                已打开
               </>
             ) : (
               <>
-                Open in Overlay{" "}
+                在悬浮窗中打开{" "}
                 <MessageCircleReplyIcon className="size-3 lg:size-4" />
               </>
             )}
           </Button>
           <Button
             variant={"outline"}
-            title="Download conversation as markdown"
+            title="将对话导出为 Markdown"
             className="text-[10px] lg:text-sm h-6 lg:h-8"
             onClick={(e) => handleDownload(messages, e)}
             disabled={isDownloaded}
@@ -120,23 +120,23 @@ const View = () => {
             {isDownloaded ? (
               <>
                 <Check className="size-3 lg:size-4 text-green-600" />
-                Downloaded
+                已导出
               </>
             ) : (
               <>
-                Download <Download className="size-3 lg:size-4" />
+                导出 <Download className="size-3 lg:size-4" />
               </>
             )}
           </Button>
           <Button
             variant="destructive"
-            title="Delete conversation"
+            title="删除对话"
             onClick={() =>
               conversationId && handleDeleteConfirm(conversationId)
             }
             className="text-[10px] lg:text-sm h-6 lg:h-8"
           >
-            Delete <Trash2 className="size-3 lg:size-4" />
+            删除 <Trash2 className="size-3 lg:size-4" />
           </Button>
         </div>
       }
@@ -145,8 +145,8 @@ const View = () => {
         <Empty
           isLoading={false}
           icon={MessageCircleIcon}
-          title="No messages found"
-          description="Start a new message to get started"
+          title="暂无消息"
+          description="发送消息以开始对话"
         />
       ) : (
         <div className="flex flex-col gap-4 pb-24 px-2">
@@ -165,7 +165,7 @@ const View = () => {
                     variant={"outline"}
                     className="flex items-center justify-center my-4 w-fit mx-auto"
                   >
-                    {moment(message.timestamp).format("ddd, MMM D")}
+                    {moment(message.timestamp).format("YYYY年M月D日 dddd")}
                   </Badge>
                 )}
 
@@ -205,7 +205,7 @@ const View = () => {
                         isUser ? "-mr-1" : "-ml-1"
                       }`}
                     >
-                      {moment(message.timestamp).format("hh:mm A")}
+                      {moment(message.timestamp).format("HH:mm")}
                     </Badge>
                   </div>
 
@@ -230,21 +230,21 @@ const View = () => {
         {completion.error && (
           <div className="px-4 pt-3 pb-0">
             <div className="p-2 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
-              <strong>Error:</strong> {completion.error}
+              <strong>错误：</strong> {completion.error}
             </div>
           </div>
         )}
 
         <div className="relative flex items-start gap-2 p-4">
-          {!hasActiveLicense && (
+          {!hasLocalFeatures && (
             <div className="select-none p-5 z-100 bg-primary/5 border border-primary/20 rounded-xl absolute top-4 left-4 right-4">
               <div className="max-w-sm mx-auto">
                 <p className="text-sm font-medium text-center">
-                  You need an active license to use this feature.
+                  使用此功能需要有效许可。
                 </p>
 
                 <GetLicense
-                  buttonText="Get License"
+                  buttonText="获取许可"
                   buttonClassName="w-full mt-2"
                 />
               </div>
@@ -270,14 +270,14 @@ const View = () => {
                     isLoading={completion.isLoading}
                     isFilesPopoverOpen={completion.isFilesPopoverOpen}
                     setIsFilesPopoverOpen={completion.setIsFilesPopoverOpen}
-                    disabled={!hasActiveLicense || !supportsImages}
+                    disabled={!hasLocalFeatures || !supportsImages}
                   />
                   <ChatAudio
                     micOpen={completion.micOpen}
                     setMicOpen={completion.setMicOpen}
                     isRecording={completion.isRecording}
                     setIsRecording={completion.setIsRecording}
-                    disabled={!hasActiveLicense}
+                    disabled={!hasLocalFeatures}
                   />
                   <ChatScreenshot
                     screenshotConfiguration={completion.screenshotConfiguration}
@@ -285,30 +285,30 @@ const View = () => {
                     isLoading={completion.isLoading}
                     captureScreenshot={completion.captureScreenshot}
                     isScreenshotLoading={completion.isScreenshotLoading}
-                    disabled={!hasActiveLicense || !supportsImages}
+                    disabled={!hasLocalFeatures || !supportsImages}
                   />
                 </div>
 
                 <Textarea
                   ref={completion.inputRef}
-                  placeholder="Type a message..."
+                  placeholder="输入消息…"
                   className="pr-12 pl-2 resize-none pb-12 pt-3"
                   rows={2}
                   value={completion.input}
                   onChange={(e) => completion.setInput(e.target.value)}
                   onKeyDown={completion.handleKeyPress}
                   onPaste={completion.handlePaste}
-                  disabled={completion.isLoading || !hasActiveLicense}
+                  disabled={completion.isLoading || !hasLocalFeatures}
                 />
                 <Button
                   size="icon"
                   className="size-7 lg:size-9 rounded-lg lg:rounded-xl absolute right-2 bottom-2"
-                  title="Send message"
+                  title="发送消息"
                   onClick={() => completion.submit()}
                   disabled={
                     completion.isLoading ||
                     !completion.input.trim() ||
-                    !hasActiveLicense
+                    !hasLocalFeatures
                   }
                 >
                   {completion.isLoading ? (

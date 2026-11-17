@@ -3,12 +3,13 @@ import {
   AlwaysOnTopToggle,
   AppIconToggle,
   AutostartToggle,
+  UserDataImport,
 } from "./components";
 import { PageLayout } from "@/layouts";
 
 const Settings = () => {
   return (
-    <PageLayout title="Settings" description="Manage your settings">
+    <PageLayout title="应用设置" description="管理应用设置">
       {/* Theme */}
       <Theme />
 
@@ -20,6 +21,7 @@ const Settings = () => {
 
       {/* Always On Top Toggle */}
       <AlwaysOnTopToggle />
+      <UserDataImport />
     </PageLayout>
   );
 };

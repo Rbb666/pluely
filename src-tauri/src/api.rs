@@ -16,7 +16,7 @@ fn get_app_endpoint() -> Result<String, String> {
 
     match option_env!("APP_ENDPOINT") {
         Some(endpoint) => Ok(endpoint.to_string()),
-        None => Err("APP_ENDPOINT environment variable not set. Please ensure it's set during the build process.".to_string())
+        None => Err("未配置 APP_ENDPOINT，无法连接官方云端服务。请使用自有 AI 服务。".to_string())
     }
 }
 
@@ -27,7 +27,7 @@ fn get_api_access_key() -> Result<String, String> {
 
     match option_env!("API_ACCESS_KEY") {
         Some(key) => Ok(key.to_string()),
-        None => Err("API_ACCESS_KEY environment variable not set. Please ensure it's set during the build process.".to_string())
+        None => Err("未配置 API_ACCESS_KEY，无法访问官方云端服务。请使用自有 AI 服务。".to_string())
     }
 }
 
@@ -36,10 +36,10 @@ fn get_secure_storage_path(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+        .map_err(|e| format!("获取应用数据目录失败：{}", e))?;
 
     fs::create_dir_all(&app_data_dir)
-        .map_err(|e| format!("Failed to create app data directory: {}", e))?;
+        .map_err(|e| format!("创建应用数据目录失败：{}", e))?;
 
     Ok(app_data_dir.join("secure_storage.json"))
 }
@@ -57,21 +57,21 @@ pub async fn get_stored_credentials(
     let storage_path = get_secure_storage_path(app)?;
 
     if !storage_path.exists() {
-        return Err("No license found. Please activate your license first.".to_string());
+        return Err("未找到许可，请先激活官方云端服务许可。".to_string());
     }
 
     let content = fs::read_to_string(&storage_path)
-        .map_err(|e| format!("Failed to read storage file: {}", e))?;
+        .map_err(|e| format!("读取配置文件失败：{}", e))?;
 
     let storage: SecureStorage = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse storage file: {}", e))?;
+        .map_err(|e| format!("解析配置文件失败：{}", e))?;
 
     let license_key = storage
         .license_key
-        .ok_or("License key not found".to_string())?;
+        .ok_or("未找到许可密钥".to_string())?;
     let instance_id = storage
         .instance_id
-        .ok_or("Instance ID not found".to_string())?;
+        .ok_or("未找到设备实例标识".to_string())?;
 
     let selected_model: Option<Model> = storage
         .selected_pluely_model
@@ -203,7 +203,7 @@ pub async fn transcribe_audio(
 
     let api_config = fetch_api_response_config(&app, provider.clone(), model.clone()).await?;
     let user_audio_config = api_config.user_audio.as_ref().ok_or_else(|| {
-        "Audio transcription is not configured for this workspace. Please contact support."
+        "当前工作区尚未配置语音识别，请联系服务支持。"
             .to_string()
     })?;
 
@@ -284,7 +284,7 @@ pub async fn transcribe_audio(
                     .await;
                 }
             });
-            Err("Transcription failed. Please try again.".to_string())
+            Err("语音识别失败，请重试。".to_string())
         }
     }
 }
@@ -328,12 +328,12 @@ async fn fetch_api_response_config(
         if error_msg.contains("url (") {
             let parts: Vec<&str> = error_msg.split(" for url (").collect();
             if parts.len() > 1 {
-                format!("Failed to fetch API config: {}", parts[0])
+                format!("获取 API 配置失败：{}", parts[0])
             } else {
-                format!("Failed to fetch API config: {}", error_msg)
+                format!("获取 API 配置失败：{}", error_msg)
             }
         } else {
-            format!("Failed to fetch API config: {}", error_msg)
+            format!("获取 API 配置失败：{}", error_msg)
         }
     })?;
 
@@ -348,18 +348,18 @@ async fn fetch_api_response_config(
         // Try to parse error as JSON to get a more specific error message
         if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
             if let Some(error_msg) = error_json.get("error").and_then(|e| e.as_str()) {
-                return Err(format!("Server error ({}): {}", status, error_msg));
+                return Err(format!("服务器错误（{}）：{}", status, error_msg));
             } else if let Some(message) = error_json.get("message").and_then(|m| m.as_str()) {
-                return Err(format!("Server error ({}): {}", status, message));
+                return Err(format!("服务器错误（{}）：{}", status, message));
             }
         }
 
-        return Err(format!("Server error ({}): {}", status, error_text));
+        return Err(format!("服务器错误（{}）：{}", status, error_text));
     }
     let api_config: ApiResponseConfig = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse API config response: {}", e))?;
+        .map_err(|e| format!("解析 API 配置响应失败：{}", e))?;
     Ok(api_config)
 }
 
@@ -383,7 +383,7 @@ fn map_api_error_message(error_rules: &[ApiConfigError], sources: &[String]) -> 
         .first()
         .map(|rule| rule.error.clone())
         .unwrap_or_else(|| {
-            "Something went wrong. Please try switching to a different model or contact support."
+            "请求失败，请尝试切换模型或联系服务支持。"
                 .to_string()
         })
 }
@@ -398,7 +398,7 @@ fn decode_audio_base64(audio_base64: &str) -> Result<Vec<u8>, String> {
 
     general_purpose::STANDARD
         .decode(base64_str)
-        .map_err(|e| format!("Failed to decode audio data: {}", e))
+        .map_err(|e| format!("解码音频数据失败：{}", e))
 }
 
 async fn perform_user_audio_transcription(
@@ -412,7 +412,7 @@ async fn perform_user_audio_transcription(
     let audio_part = Part::bytes(audio_bytes.to_vec())
         .file_name("audio.wav")
         .mime_str("audio/wav")
-        .map_err(|e| format!("Failed to prepare audio payload: {}", e))?;
+        .map_err(|e| format!("准备音频数据失败：{}", e))?;
 
     let mut form = Form::new()
         .part("file", audio_part)
@@ -435,16 +435,16 @@ async fn perform_user_audio_transcription(
         .multipart(form)
         .send()
         .await
-        .map_err(|e| format!("Transcription request failed to send: {}", e))?;
+        .map_err(|e| format!("发送语音识别请求失败：{}", e))?;
 
     if !response.status().is_success() {
         let status = response.status();
         let error_text = response
             .text()
             .await
-            .unwrap_or_else(|_| "Unable to read transcription error response".to_string());
+            .unwrap_or_else(|_| "无法读取语音识别错误响应".to_string());
         return Err(format!(
-            "Transcription request returned {} with body: {}",
+            "语音识别请求返回状态 {}，响应内容：{}",
             status, error_text
         ));
     }
@@ -452,10 +452,10 @@ async fn perform_user_audio_transcription(
     let body_text = response
         .text()
         .await
-        .map_err(|e| format!("Failed to read transcription response: {}", e))?;
+        .map_err(|e| format!("读取语音识别响应失败：{}", e))?;
 
     if body_text.trim().is_empty() {
-        return Err("Transcription response was empty".to_string());
+        return Err("语音识别响应为空".to_string());
     }
 
     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body_text) {
@@ -921,12 +921,12 @@ pub async fn fetch_models(app: AppHandle) -> Result<Vec<Model>, String> {
                 // Remove the URL part from the error message
                 let parts: Vec<&str> = error_msg.split(" for url (").collect();
                 if parts.len() > 1 {
-                    format!("Failed to make models request: {}", parts[0])
+                    format!("请求模型服务失败：{}", parts[0])
                 } else {
-                    format!("Failed to make models request: {}", error_msg)
+                    format!("请求模型服务失败：{}", error_msg)
                 }
             } else {
-                format!("Failed to make models request: {}", error_msg)
+                format!("请求模型服务失败：{}", error_msg)
             }
         })?;
 
@@ -941,19 +941,19 @@ pub async fn fetch_models(app: AppHandle) -> Result<Vec<Model>, String> {
         // Try to parse error as JSON to get a more specific error message
         if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
             if let Some(error_msg) = error_json.get("error").and_then(|e| e.as_str()) {
-                return Err(format!("Server error ({}): {}", status, error_msg));
+                return Err(format!("服务器错误（{}）：{}", status, error_msg));
             } else if let Some(message) = error_json.get("message").and_then(|m| m.as_str()) {
-                return Err(format!("Server error ({}): {}", status, message));
+                return Err(format!("服务器错误（{}）：{}", status, message));
             }
         }
 
-        return Err(format!("Server error ({}): {}", status, error_text));
+        return Err(format!("服务器错误（{}）：{}", status, error_text));
     }
 
     let models_response: ModelsResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse models response: {}", e))?;
+        .map_err(|e| format!("解析模型列表失败：{}", e))?;
 
     Ok(models_response.models)
 }
@@ -978,12 +978,12 @@ pub async fn fetch_prompts() -> Result<PluelyPromptsResponse, String> {
             if error_msg.contains("url (") {
                 let parts: Vec<&str> = error_msg.split(" for url (").collect();
                 if parts.len() > 1 {
-                    format!("Failed to make prompts request: {}", parts[0])
+                    format!("请求提示词列表失败：{}", parts[0])
                 } else {
-                    format!("Failed to make prompts request: {}", error_msg)
+                    format!("请求提示词列表失败：{}", error_msg)
                 }
             } else {
-                format!("Failed to make prompts request: {}", error_msg)
+                format!("请求提示词列表失败：{}", error_msg)
             }
         })?;
 
@@ -997,19 +997,19 @@ pub async fn fetch_prompts() -> Result<PluelyPromptsResponse, String> {
 
         if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
             if let Some(error_msg) = error_json.get("error").and_then(|e| e.as_str()) {
-                return Err(format!("Server error ({}): {}", status, error_msg));
+                return Err(format!("服务器错误（{}）：{}", status, error_msg));
             } else if let Some(message) = error_json.get("message").and_then(|m| m.as_str()) {
-                return Err(format!("Server error ({}): {}", status, message));
+                return Err(format!("服务器错误（{}）：{}", status, message));
             }
         }
 
-        return Err(format!("Server error ({}): {}", status, error_text));
+        return Err(format!("服务器错误（{}）：{}", status, error_text));
     }
 
     let prompts_response: PluelyPromptsResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse prompts response: {}", e))?;
+        .map_err(|e| format!("解析提示词列表失败：{}", e))?;
 
     Ok(prompts_response)
 }
@@ -1049,12 +1049,12 @@ pub async fn create_system_prompt(
                 // Remove the URL part from the error message
                 let parts: Vec<&str> = error_msg.split(" for url (").collect();
                 if parts.len() > 1 {
-                    format!("Failed to make models request: {}", parts[0])
+                    format!("请求模型服务失败：{}", parts[0])
                 } else {
-                    format!("Failed to make models request: {}", error_msg)
+                    format!("请求模型服务失败：{}", error_msg)
                 }
             } else {
-                format!("Failed to make models request: {}", error_msg)
+                format!("请求模型服务失败：{}", error_msg)
             }
         })?;
 
@@ -1069,19 +1069,19 @@ pub async fn create_system_prompt(
         // Try to parse error as JSON to get a more specific error message
         if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
             if let Some(error_msg) = error_json.get("error").and_then(|e| e.as_str()) {
-                return Err(format!("Server error ({}): {}", status, error_msg));
+                return Err(format!("服务器错误（{}）：{}", status, error_msg));
             } else if let Some(message) = error_json.get("message").and_then(|m| m.as_str()) {
-                return Err(format!("Server error ({}): {}", status, message));
+                return Err(format!("服务器错误（{}）：{}", status, message));
             }
         }
 
-        return Err(format!("Server error ({}): {}", status, error_text));
+        return Err(format!("服务器错误（{}）：{}", status, error_text));
     }
 
     let system_prompt_response: SystemPromptResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse system prompt response: {}", e))?;
+        .map_err(|e| format!("解析系统提示词响应失败：{}", e))?;
 
     Ok(system_prompt_response)
 }
@@ -1109,7 +1109,7 @@ pub async fn get_activity(app: AppHandle) -> Result<serde_json::Value, String> {
     };
 
     if machine_id.is_empty() {
-        return Err("Machine identifier unavailable".to_string());
+        return Err("无法获取设备标识".to_string());
     }
 
     let app_version = app.package_info().version.to_string();
@@ -1131,12 +1131,12 @@ pub async fn get_activity(app: AppHandle) -> Result<serde_json::Value, String> {
             if error_msg.contains("url (") {
                 let parts: Vec<&str> = error_msg.split(" for url (").collect();
                 if parts.len() > 1 {
-                    format!("Failed to request activity: {}", parts[0])
+                    format!("获取使用记录失败：{}", parts[0])
                 } else {
-                    format!("Failed to request activity: {}", error_msg)
+                    format!("获取使用记录失败：{}", error_msg)
                 }
             } else {
-                format!("Failed to request activity: {}", error_msg)
+                format!("获取使用记录失败：{}", error_msg)
             }
         })?;
 
@@ -1153,15 +1153,15 @@ pub async fn get_activity(app: AppHandle) -> Result<serde_json::Value, String> {
                 .and_then(|m| m.as_str())
                 .or_else(|| error_json.get("error").and_then(|m| m.as_str()))
             {
-                return Err(format!("Server error ({}): {}", status, message));
+                return Err(format!("服务器错误（{}）：{}", status, message));
             }
         }
 
-        return Err(format!("Server error ({}): {}", status, error_text));
+        return Err(format!("服务器错误（{}）：{}", status, error_text));
     }
 
     response
         .json::<serde_json::Value>()
         .await
-        .map_err(|e| format!("Failed to parse activity response: {}", e))
+        .map_err(|e| format!("解析使用记录失败：{}", e))
 }

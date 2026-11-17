@@ -22,8 +22,8 @@ export const CursorSelection = ({ className }: CursorSelectionProps) => {
   return (
     <div id="cursor" className={`space-y-2 ${className}`}>
       <Header
-        title="Cursor"
-        description="Control pluely cursor visibility"
+        title="光标"
+        description="设置 Pluely 窗口内的光标显示方式"
         isMainTitle
         rightSlot={
           <Select
@@ -31,25 +31,25 @@ export const CursorSelection = ({ className }: CursorSelectionProps) => {
             onValueChange={(value) => setCursorType(value as CursorType)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select a cursor type" />
+              <SelectValue placeholder="选择光标类型" />
             </SelectTrigger>
             <SelectContent position="popper" align="end">
               <SelectItem value="invisible" disabled={platform === "linux"}>
-                Invisible (<MousePointer2 className="size-3 px-0" />){" "}
+                隐藏（<MousePointer2 className="size-3 px-0" />）{" "}
                 {platform === "linux" && (
                   <span className="text-xs text-muted-foreground">
-                    Not supported on Linux
+                    Linux 不支持
                   </span>
                 )}
               </SelectItem>
               <SelectItem value="default">
-                Default (<MousePointer className="size-3" />)
+                默认（<MousePointer className="size-3" />）
               </SelectItem>
               <SelectItem value="auto">
-                Auto (
+                自动（
                 <MousePointer className="size-3" />/
                 <TextCursor className="size-3" /> /
-                <Pointer className="size-3" />)
+                <Pointer className="size-3" />）
               </SelectItem>
             </SelectContent>
           </Select>

@@ -18,11 +18,11 @@ export async function createSystemPrompt(
   const prompt = input.prompt.trim();
 
   if (!name) {
-    throw new Error("System prompt name cannot be empty");
+    throw new Error("系统提示词名称不能为空");
   }
 
   if (!prompt) {
-    throw new Error("System prompt text cannot be empty");
+    throw new Error("系统提示词内容不能为空");
   }
 
   const result = await db.execute(
@@ -37,7 +37,7 @@ export async function createSystemPrompt(
   );
 
   if (!inserted[0]) {
-    throw new Error("Failed to retrieve created system prompt");
+    throw new Error("无法读取新建的系统提示词");
   }
 
   return inserted[0];
@@ -83,7 +83,7 @@ export async function updateSystemPrompt(
   if (input.name !== undefined) {
     const name = input.name.trim();
     if (!name) {
-      throw new Error("System prompt name cannot be empty");
+      throw new Error("系统提示词名称不能为空");
     }
     updates.push("name = ?");
     values.push(name);
@@ -92,14 +92,14 @@ export async function updateSystemPrompt(
   if (input.prompt !== undefined) {
     const prompt = input.prompt.trim();
     if (!prompt) {
-      throw new Error("System prompt text cannot be empty");
+      throw new Error("系统提示词内容不能为空");
     }
     updates.push("prompt = ?");
     values.push(prompt);
   }
 
   if (updates.length === 0) {
-    throw new Error("No fields to update");
+    throw new Error("没有需要更新的内容");
   }
 
   values.push(id);
@@ -115,7 +115,7 @@ export async function updateSystemPrompt(
   );
 
   if (!result[0]) {
-    throw new Error("System prompt not found after update");
+    throw new Error("更新后未找到系统提示词");
   }
 
   return result[0];
@@ -131,6 +131,6 @@ export async function deleteSystemPrompt(id: number): Promise<void> {
   ]);
 
   if (result.rowsAffected === 0) {
-    throw new Error("System prompt not found");
+    throw new Error("未找到系统提示词");
   }
 }

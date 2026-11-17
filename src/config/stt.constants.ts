@@ -24,7 +24,7 @@ export const SPEECH_TO_TEXT_PROVIDERS = [
   },
   {
     id: "elevenlabs-stt",
-    name: "ElevenLabs Speech-to-Text",
+    name: "ElevenLabs 语音识别",
     curl: `curl -X POST "https://api.elevenlabs.io/v1/speech-to-text" \\
       -H "xi-api-key: {{API_KEY}}" \\
       -F "file={{AUDIO}}" \\
@@ -34,7 +34,7 @@ export const SPEECH_TO_TEXT_PROVIDERS = [
   },
   {
     id: "google-stt",
-    name: "Google Speech-to-Text",
+    name: "Google 语音识别",
     curl: `curl -X POST "https://speech.googleapis.com/v1/speech:recognize" \\
       -H "Authorization: Bearer {{API_KEY}}" \\
       -H "Content-Type: application/json" \\
@@ -54,7 +54,7 @@ export const SPEECH_TO_TEXT_PROVIDERS = [
   },
   {
     id: "deepgram-stt",
-    name: "Deepgram Speech-to-Text",
+    name: "Deepgram 语音识别",
     curl: `curl -X POST "https://api.deepgram.com/v1/listen?model={{MODEL}}" \\
       -H "Authorization: TOKEN {{API_KEY}}" \\
       -H "Content-Type: audio/wav" \\
@@ -64,7 +64,7 @@ export const SPEECH_TO_TEXT_PROVIDERS = [
   },
   {
     id: "azure-stt",
-    name: "Azure Speech-to-Text",
+    name: "Azure 语音识别",
     curl: `curl -X POST "https://{{REGION}}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US" \\
       -H "Ocp-Apim-Subscription-Key: {{API_KEY}}" \\
       -H "Content-Type: audio/wav" \\
@@ -84,7 +84,7 @@ export const SPEECH_TO_TEXT_PROVIDERS = [
   },
   {
     id: "rev-ai-stt",
-    name: "Rev.ai Speech-to-Text",
+    name: "Rev.ai 语音识别",
     curl: `curl -X POST "https://api.rev.ai/speechtotext/v1/jobs" \\
       -H "Authorization: Bearer {{API_KEY}}" \\
       -F "media={{AUDIO}}" \\
@@ -94,7 +94,7 @@ export const SPEECH_TO_TEXT_PROVIDERS = [
   },
   {
     id: "ibm-watson-stt",
-    name: "IBM Watson Speech-to-Text",
+    name: "IBM Watson 语音识别",
     curl: `curl -X POST "https://api.us-south.speech-to-text.watson.cloud.ibm.com/v1/recognize" \\
       -H "Authorization: Basic {{API_KEY}}" \\
       -H "Content-Type: audio/wav" \\

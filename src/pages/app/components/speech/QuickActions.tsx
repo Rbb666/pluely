@@ -44,7 +44,7 @@ export const QuickActions = ({
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-1.5">
           <ZapIcon className="w-3.5 h-3.5 text-primary" />
-          <h4 className="text-xs font-medium">Quick Actions</h4>
+          <h4 className="text-xs font-medium">快捷操作</h4>
         </div>
         <div className="flex items-center gap-1">
           {show && (
@@ -53,15 +53,19 @@ export const QuickActions = ({
               size="sm"
               className="h-6 px-2 text-[10px]"
               onClick={() => setIsManaging(!isManaging)}
+              title={isManaging ? "完成快捷操作编辑" : "编辑快捷操作"}
+              aria-label={isManaging ? "完成快捷操作编辑" : "编辑快捷操作"}
             >
               <Settings2Icon className="w-3 h-3 mr-1" />
-              {isManaging ? "Done" : "Edit"}
+              {isManaging ? "完成" : "编辑"}
             </Button>
           )}
           <Button
             variant="ghost"
             size="icon"
             className="h-6 w-6"
+            title={show ? "隐藏快捷操作" : "显示快捷操作"}
+            aria-label={show ? "隐藏快捷操作" : "显示快捷操作"}
             onClick={() => {
               setShow(!show);
               setIsManaging(false);
@@ -97,6 +101,8 @@ export const QuickActions = ({
               {isManaging && (
                 <button
                   type="button"
+                  title={`删除快捷操作：${action}`}
+                  aria-label={`删除快捷操作：${action}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemoveAction(action);
@@ -115,9 +121,12 @@ export const QuickActions = ({
                 type="text"
                 value={newAction}
                 onChange={(e) => setNewAction(e.target.value)}
-                placeholder="Add action..."
+                placeholder="添加操作…"
                 className="h-7 text-xs w-28"
                 onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) {
+                    return;
+                  }
                   if (e.key === "Enter") {
                     e.preventDefault();
                     handleAdd();
@@ -128,6 +137,8 @@ export const QuickActions = ({
                 size="sm"
                 className="h-7 text-xs px-2"
                 onClick={handleAdd}
+                title="添加快捷操作"
+                aria-label="添加快捷操作"
                 disabled={!newAction.trim()}
               >
                 <PlusIcon className="w-3 h-3" />

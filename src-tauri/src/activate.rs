@@ -14,7 +14,7 @@ fn get_payment_endpoint() -> Result<String, String> {
 
     match option_env!("PAYMENT_ENDPOINT") {
         Some(endpoint) => Ok(endpoint.to_string()),
-        None => Err("PAYMENT_ENDPOINT environment variable not set. Please ensure it's set during the build process.".to_string())
+        None => Err("未配置 PAYMENT_ENDPOINT，无法连接官方许可服务。".to_string())
     }
 }
 
@@ -25,7 +25,7 @@ fn get_api_access_key() -> Result<String, String> {
 
     match option_env!("API_ACCESS_KEY") {
         Some(key) => Ok(key.to_string()),
-        None => Err("API_ACCESS_KEY environment variable not set. Please ensure it's set during the build process.".to_string())
+        None => Err("未配置 API_ACCESS_KEY，无法访问官方云端服务。请使用自有 AI 服务。".to_string())
     }
 }
 
@@ -34,11 +34,11 @@ fn get_secure_storage_path(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+        .map_err(|e| format!("获取应用数据目录失败：{}", e))?;
 
     // Create the directory if it doesn't exist
     fs::create_dir_all(&app_data_dir)
-        .map_err(|e| format!("Failed to create app data directory: {}", e))?;
+        .map_err(|e| format!("创建应用数据目录失败：{}", e))?;
 
     Ok(app_data_dir.join("secure_storage.json"))
 }
@@ -69,7 +69,7 @@ pub async fn secure_storage_save(app: AppHandle, items: Vec<StorageItem>) -> Res
 
     let mut storage = if storage_path.exists() {
         let content = fs::read_to_string(&storage_path)
-            .map_err(|e| format!("Failed to read storage file: {}", e))?;
+            .map_err(|e| format!("读取配置文件失败：{}", e))?;
         serde_json::from_str(&content).unwrap_or_default()
     } else {
         SecureStorage::default()
@@ -80,15 +80,15 @@ pub async fn secure_storage_save(app: AppHandle, items: Vec<StorageItem>) -> Res
             "pluely_license_key" => storage.license_key = Some(item.value),
             "pluely_instance_id" => storage.instance_id = Some(item.value),
             "selected_pluely_model" => storage.selected_pluely_model = Some(item.value),
-            _ => return Err(format!("Invalid storage key: {}", item.key)),
+            _ => return Err(format!("无效的配置项：{}", item.key)),
         }
     }
 
     let content = serde_json::to_string(&storage)
-        .map_err(|e| format!("Failed to serialize storage: {}", e))?;
+        .map_err(|e| format!("序列化配置数据失败：{}", e))?;
 
     fs::write(&storage_path, content)
-        .map_err(|e| format!("Failed to write storage file: {}", e))?;
+        .map_err(|e| format!("写入配置文件失败：{}", e))?;
 
     Ok(())
 }
@@ -106,10 +106,10 @@ pub async fn secure_storage_get(app: AppHandle) -> Result<StorageResult, String>
     }
 
     let content = fs::read_to_string(&storage_path)
-        .map_err(|e| format!("Failed to read storage file: {}", e))?;
+        .map_err(|e| format!("读取配置文件失败：{}", e))?;
 
     let storage: SecureStorage = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse storage file: {}", e))?;
+        .map_err(|e| format!("解析配置文件失败：{}", e))?;
 
     Ok(StorageResult {
         license_key: storage.license_key,
@@ -127,25 +127,25 @@ pub async fn secure_storage_remove(app: AppHandle, keys: Vec<String>) -> Result<
     }
 
     let content = fs::read_to_string(&storage_path)
-        .map_err(|e| format!("Failed to read storage file: {}", e))?;
+        .map_err(|e| format!("读取配置文件失败：{}", e))?;
 
     let mut storage: SecureStorage = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse storage file: {}", e))?;
+        .map_err(|e| format!("解析配置文件失败：{}", e))?;
 
     for key in keys {
         match key.as_str() {
             "pluely_license_key" => storage.license_key = None,
             "pluely_instance_id" => storage.instance_id = None,
             "selected_pluely_model" => storage.selected_pluely_model = None,
-            _ => return Err(format!("Invalid storage key: {}", key)),
+            _ => return Err(format!("无效的配置项：{}", key)),
         }
     }
 
     let content = serde_json::to_string(&storage)
-        .map_err(|e| format!("Failed to serialize storage: {}", e))?;
+        .map_err(|e| format!("序列化配置数据失败：{}", e))?;
 
     fs::write(&storage_path, content)
-        .map_err(|e| format!("Failed to write storage file: {}", e))?;
+        .map_err(|e| format!("写入配置文件失败：{}", e))?;
 
     Ok(())
 }
@@ -226,12 +226,12 @@ pub async fn activate_license_api(
                 // Remove the URL part from the error message
                 let parts: Vec<&str> = error_msg.split(" for url (").collect();
                 if parts.len() > 1 {
-                    format!("Failed to make chat request: {}", parts[0])
+                    format!("许可服务请求失败：{}", parts[0])
                 } else {
-                    format!("Failed to make chat request: {}", error_msg)
+                    format!("许可服务请求失败：{}", error_msg)
                 }
             } else {
-                format!("Failed to make chat request: {}", error_msg)
+                format!("许可服务请求失败：{}", error_msg)
             }
         })?;
 
@@ -241,12 +241,12 @@ pub async fn activate_license_api(
             // Remove the URL part from the error message
             let parts: Vec<&str> = error_msg.split(" for url (").collect();
             if parts.len() > 1 {
-                format!("Failed to make chat request: {}", parts[0])
+                format!("许可服务请求失败：{}", parts[0])
             } else {
-                format!("Failed to make chat request: {}", error_msg)
+                format!("许可服务请求失败：{}", error_msg)
             }
         } else {
-            format!("Failed to make chat request: {}", error_msg)
+            format!("许可服务请求失败：{}", error_msg)
         }
     })?;
     Ok(activation_response)
@@ -283,12 +283,12 @@ pub async fn deactivate_license_api(app: AppHandle) -> Result<ActivationResponse
                 // Remove the URL part from the error message
                 let parts: Vec<&str> = error_msg.split(" for url (").collect();
                 if parts.len() > 1 {
-                    format!("Failed to make chat request: {}", parts[0])
+                    format!("许可服务请求失败：{}", parts[0])
                 } else {
-                    format!("Failed to make chat request: {}", error_msg)
+                    format!("许可服务请求失败：{}", error_msg)
                 }
             } else {
-                format!("Failed to make chat request: {}", error_msg)
+                format!("许可服务请求失败：{}", error_msg)
             }
         })?;
     let deactivation_response: ActivationResponse = response.json().await.map_err(|e| {
@@ -297,12 +297,12 @@ pub async fn deactivate_license_api(app: AppHandle) -> Result<ActivationResponse
             // Remove the URL part from the error message
             let parts: Vec<&str> = error_msg.split(" for url (").collect();
             if parts.len() > 1 {
-                format!("Failed to make chat request: {}", parts[0])
+                format!("许可服务请求失败：{}", parts[0])
             } else {
-                format!("Failed to make chat request: {}", error_msg)
+                format!("许可服务请求失败：{}", error_msg)
             }
         } else {
-            format!("Failed to make chat request: {}", error_msg)
+            format!("许可服务请求失败：{}", error_msg)
         }
     })?;
     Ok(deactivation_response)
@@ -348,12 +348,12 @@ pub async fn validate_license_api(app: AppHandle) -> Result<ValidateResponse, St
                 // Remove the URL part from the error message
                 let parts: Vec<&str> = error_msg.split(" for url (").collect();
                 if parts.len() > 1 {
-                    format!("Failed to make chat request: {}", parts[0])
+                    format!("许可服务请求失败：{}", parts[0])
                 } else {
-                    format!("Failed to make chat request: {}", error_msg)
+                    format!("许可服务请求失败：{}", error_msg)
                 }
             } else {
-                format!("Failed to make chat request: {}", error_msg)
+                format!("许可服务请求失败：{}", error_msg)
             }
         })?;
 
@@ -363,12 +363,12 @@ pub async fn validate_license_api(app: AppHandle) -> Result<ValidateResponse, St
             // Remove the URL part from the error message
             let parts: Vec<&str> = error_msg.split(" for url (").collect();
             if parts.len() > 1 {
-                format!("Failed to make chat request: {}", parts[0])
+                format!("许可服务请求失败：{}", parts[0])
             } else {
-                format!("Failed to make chat request: {}", error_msg)
+                format!("许可服务请求失败：{}", error_msg)
             }
         } else {
-            format!("Failed to make chat request: {}", error_msg)
+            format!("许可服务请求失败：{}", error_msg)
         }
     })?;
     Ok(validate_response)
@@ -410,12 +410,12 @@ pub async fn get_checkout_url() -> Result<CheckoutResponse, String> {
                 // Remove the URL part from the error message
                 let parts: Vec<&str> = error_msg.split(" for url (").collect();
                 if parts.len() > 1 {
-                    format!("Failed to make chat request: {}", parts[0])
+                    format!("许可服务请求失败：{}", parts[0])
                 } else {
-                    format!("Failed to make chat request: {}", error_msg)
+                    format!("许可服务请求失败：{}", error_msg)
                 }
             } else {
-                format!("Failed to make chat request: {}", error_msg)
+                format!("许可服务请求失败：{}", error_msg)
             }
         })?;
 
@@ -425,12 +425,12 @@ pub async fn get_checkout_url() -> Result<CheckoutResponse, String> {
             // Remove the URL part from the error message
             let parts: Vec<&str> = error_msg.split(" for url (").collect();
             if parts.len() > 1 {
-                format!("Failed to make chat request: {}", parts[0])
+                format!("许可服务请求失败：{}", parts[0])
             } else {
-                format!("Failed to make chat request: {}", error_msg)
+                format!("许可服务请求失败：{}", error_msg)
             }
         } else {
-            format!("Failed to make chat request: {}", error_msg)
+            format!("许可服务请求失败：{}", error_msg)
         }
     })?;
     Ok(checkout_response)

@@ -41,16 +41,16 @@ impl Default for CaptureState {
 #[tauri::command]
 pub async fn start_screen_capture(app: tauri::AppHandle) -> Result<(), String> {
     // Get all monitors
-    let capture_monitors = Monitor::all().map_err(|e| format!("Failed to get monitors: {}", e))?;
+    let capture_monitors = Monitor::all().map_err(|e| format!("获取显示器列表失败：{}", e))?;
 
     if capture_monitors.is_empty() {
-        return Err("No monitors found".to_string());
+        return Err("未找到显示器".to_string());
     }
 
     // Get monitor layout info from Tauri for accurate sizing/positioning
     let tauri_monitors = app
         .available_monitors()
-        .map_err(|e| format!("Failed to get monitor layout: {}", e))?;
+        .map_err(|e| format!("获取显示器布局失败：{}", e))?;
 
     if tauri_monitors.len() != capture_monitors.len() {
         eprintln!(
@@ -72,7 +72,7 @@ pub async fn start_screen_capture(app: tauri::AppHandle) -> Result<(), String> {
     for (idx, monitor) in capture_monitors.iter().enumerate() {
         let captured_image = monitor.capture_image().map_err(|e| {
             state.overlay_active.store(false, Ordering::SeqCst);
-            format!("Failed to capture monitor {}: {}", idx, e)
+            format!("截取显示器 {} 失败：{}", idx, e)
         })?;
 
         let monitor_info = MonitorInfo {
@@ -121,7 +121,7 @@ pub async fn start_screen_capture(app: tauri::AppHandle) -> Result<(), String> {
 
         let overlay =
             WebviewWindowBuilder::new(&app, &window_label, WebviewUrl::App("index.html".into()))
-                .title("Screen Capture")
+                .title("屏幕截图")
                 .inner_size(logical_width, logical_height)
                 .position(logical_x, logical_y)
                 .transparent(true)
@@ -140,7 +140,7 @@ pub async fn start_screen_capture(app: tauri::AppHandle) -> Result<(), String> {
                 .build()
                 .map_err(|e| {
                     state.overlay_active.store(false, Ordering::SeqCst);
-                    format!("Failed to create overlay window {}: {}", idx, e)
+                    format!("创建截图窗口 {} 失败：{}", idx, e)
                 })?;
 
         // Wait a short moment for content to load before showing
@@ -210,12 +210,12 @@ pub async fn capture_selected_area(
 
     let monitor_info = captured_monitors.remove(&monitor_index).ok_or({
         state.overlay_active.store(false, Ordering::SeqCst);
-        format!("No captured image found for monitor {}", monitor_index)
+        format!("未找到显示器 {} 的截图", monitor_index)
     })?;
 
     // Validate coordinates
     if coords.width == 0 || coords.height == 0 {
-        return Err("Invalid selection dimensions".to_string());
+        return Err("所选区域尺寸无效".to_string());
     }
 
     let img_width = monitor_info.image.width();
@@ -239,7 +239,7 @@ pub async fn capture_selected_area(
             cropped.height(),
             ColorType::Rgba8.into(),
         )
-        .map_err(|e| format!("Failed to encode to PNG: {}", e))?;
+        .map_err(|e| format!("转换为 PNG 图片失败：{}", e))?;
 
     let base64_str = base64::engine::general_purpose::STANDARD.encode(png_buffer);
 
@@ -256,7 +256,7 @@ pub async fn capture_selected_area(
 
     // Emit event with base64 data
     app.emit("captured-selection", &base64_str)
-        .map_err(|e| format!("Failed to emit captured-selection event: {}", e))?;
+        .map_err(|e| format!("发送区域截图结果失败：{}", e))?;
 
     state.overlay_active.store(false, Ordering::SeqCst);
 
@@ -312,9 +312,9 @@ pub async fn capture_to_base64(window: tauri::WebviewWindow) -> Result<String, S
         geometry;
 
     tauri::async_runtime::spawn_blocking(move || {
-        let monitors = Monitor::all().map_err(|e| format!("Failed to get monitors: {}", e))?;
+        let monitors = Monitor::all().map_err(|e| format!("获取显示器列表失败：{}", e))?;
         if monitors.is_empty() {
-            return Err("No monitors found".to_string());
+            return Err("未找到显示器".to_string());
         }
 
         let mut best_idx: Option<usize> = None;
@@ -370,11 +370,11 @@ pub async fn capture_to_base64(window: tauri::WebviewWindow) -> Result<String, S
                     None
                 }
             })
-            .ok_or_else(|| "Failed to determine target monitor".to_string())?;
+            .ok_or_else(|| "无法确定目标显示器".to_string())?;
 
         let image = monitor
             .capture_image()
-            .map_err(|e| format!("Failed to capture image: {}", e))?;
+            .map_err(|e| format!("截图失败：{}", e))?;
         let mut png_buffer = Vec::new();
         PngEncoder::new(&mut png_buffer)
             .write_image(
@@ -383,11 +383,11 @@ pub async fn capture_to_base64(window: tauri::WebviewWindow) -> Result<String, S
                 image.height(),
                 ColorType::Rgba8.into(),
             )
-            .map_err(|e| format!("Failed to encode to PNG: {}", e))?;
+            .map_err(|e| format!("转换为 PNG 图片失败：{}", e))?;
         let base64_str = base64::engine::general_purpose::STANDARD.encode(png_buffer);
 
         Ok(base64_str)
     })
     .await
-    .map_err(|e| format!("Task panicked: {}", e))?
+    .map_err(|e| format!("截图任务异常终止：{}", e))?
 }

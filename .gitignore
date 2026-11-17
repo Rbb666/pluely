@@ -8,6 +8,19 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.local-tools/
+release-private/
+src-tauri/runtime/
+# Local credentials and exported user data
+.env
+.env.*
+!.env.example
+*.pluely-backup.json
+*.pluely-backup.json.sha256
+# Abandoned launcher experiments contain only local build output.
+/tools/portable-launcher/
+# Generated from locked npm packages by scripts/prepare-vad-assets.cjs
+/public/vad/
 dist
 dist-ssr
 *.local

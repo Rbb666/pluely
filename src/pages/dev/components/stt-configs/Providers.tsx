@@ -1,5 +1,6 @@
 import { Button, Header, Input, Selection, TextInput } from "@/components";
 import { UseSettingsReturn } from "@/types";
+import { getProviderVariableLabel } from "@/lib";
 import curl2Json, { ResultJSON } from "@bany/curl-to-json";
 import { KeyIcon, TrashIcon } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -43,8 +44,8 @@ export const Providers = ({
     <div className="space-y-3">
       <div className="space-y-2">
         <Header
-          title="Select STT Provider"
-          description="Select your preferred STT service provider or custom providers to get started."
+          title="选择语音识别服务"
+          description="选择预设或自定义语音识别服务以开始使用。"
         />
         <Selection
           selected={selectedSttProvider?.provider}
@@ -52,13 +53,13 @@ export const Providers = ({
             const json = curl2Json(provider?.curl);
             return {
               label: provider?.isCustom
-                ? json?.url || "Custom Provider"
-                : provider?.id || "Custom Provider",
+                ? json?.url || "自定义服务"
+                : provider?.id || "自定义服务",
               value: provider?.id || "Custom Provider",
               isCustom: provider?.isCustom,
             };
           })}
-          placeholder="Choose your STT provider"
+          placeholder="选择语音识别服务"
           onChange={(value) => {
             onSetSelectedSttProvider({
               provider: value,
@@ -69,23 +70,23 @@ export const Providers = ({
       </div>
       {localSelectedProvider ? (
         <Header
-          title={`Method: ${
-            localSelectedProvider?.method || "Invalid"
-          }, Endpoint: ${localSelectedProvider?.url || "Invalid"}`}
-          description={`If you want to use different url or method, you can always create a custom provider.`}
+          title={`请求方法： ${
+            localSelectedProvider?.method || "无效"
+          }，接口： ${localSelectedProvider?.url || "无效"}`}
+          description={"如需使用其他地址或请求方法，可添加自定义服务。"}
         />
       ) : null}
       {findKeyAndValue("api_key") ? (
         <div className="space-y-2">
           <Header
-            title="API Key"
-            description={`Enter your ${
+            title="API 密钥"
+            description={`输入 ${
               allSttProviders?.find(
                 (p) => p?.id === selectedSttProvider?.provider
               )?.isCustom
-                ? "Custom Provider"
+                ? "自定义服务"
                 : selectedSttProvider?.provider
-            } API key to authenticate and access STT models. Your key is stored locally and never shared.`}
+            } 的 API 密钥以使用语音识别服务。密钥保存在本地，仅用于调用对应服务。`}
           />
 
           <div className="space-y-2">
@@ -140,7 +141,7 @@ export const Providers = ({
                   disabled={isApiKeyEmpty()}
                   size="icon"
                   className="shrink-0 h-11 w-11"
-                  title="Submit API Key"
+                  title="保存 API 密钥"
                 >
                   <KeyIcon className="h-4 w-4" />
                 </Button>
@@ -161,7 +162,7 @@ export const Providers = ({
                   size="icon"
                   variant="destructive"
                   className="shrink-0 h-11 w-11"
-                  title="Remove API Key"
+                  title="移除 API 密钥"
                 >
                   <TrashIcon className="h-4 w-4" />
                 </Button>
@@ -177,6 +178,9 @@ export const Providers = ({
             (variable) => variable?.key !== findKeyAndValue("api_key")?.key
           )
           .map((variable) => {
+            const variableLabel = getProviderVariableLabel(
+              variable?.key || variable?.value || "参数"
+            );
             const getVariableValue = () => {
               if (!variable?.key || !selectedSttProvider?.variables) return "";
               return selectedSttProvider.variables[variable.key] || "";
@@ -185,26 +189,23 @@ export const Providers = ({
             return (
               <div className="space-y-1" key={variable?.key}>
                 <Header
-                  title={variable?.value || ""}
-                  description={`add your preferred ${variable?.key?.replace(
-                    /_/g,
-                    " "
-                  )} for ${
+                  title={variableLabel}
+                  description={`填写${variableLabel}，服务：${
                     allSttProviders?.find(
                       (p) => p?.id === selectedSttProvider?.provider
                     )?.isCustom
-                      ? "Custom Provider"
+                      ? "自定义服务"
                       : selectedSttProvider?.provider
                   }`}
                 />
                 <TextInput
-                  placeholder={`Enter ${
+                  placeholder={`输入 ${
                     allSttProviders?.find(
                       (p) => p?.id === selectedSttProvider?.provider
                     )?.isCustom
-                      ? "Custom Provider"
+                      ? "自定义服务"
                       : selectedSttProvider?.provider
-                  } ${variable?.key?.replace(/_/g, " ") || "value"}`}
+                  } 的${variableLabel}`}
                   value={getVariableValue()}
                   onChange={(value) => {
                     if (!variable?.key || !selectedSttProvider) return;

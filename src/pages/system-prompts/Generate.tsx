@@ -10,6 +10,7 @@ import { SparklesIcon } from "lucide-react";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useApp } from "@/contexts";
+import { fetchAIResponse } from "@/lib/functions";
 
 interface GenerateSystemPromptProps {
   onGenerate: (prompt: string, promptName: string) => void;
@@ -23,7 +24,14 @@ interface SystemPromptResponse {
 export const GenerateSystemPrompt = ({
   onGenerate,
 }: GenerateSystemPromptProps) => {
-  const { hasActiveLicense } = useApp();
+  const {
+    hasActiveLicense,
+    hasLocalFeatures,
+    pluelyApiEnabled,
+    allAiProviders,
+    selectedAIProvider,
+  } = useApp();
+  const canGenerate = pluelyApiEnabled ? hasActiveLicense : hasLocalFeatures;
   const [userPrompt, setUserPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +39,11 @@ export const GenerateSystemPrompt = ({
 
   const handleGenerate = async () => {
     if (!userPrompt.trim()) {
-      setError("Please describe what you want");
+      setError("请描述你需要的 AI 行为");
+      return;
+    }
+    if (!canGenerate) {
+      setError("使用 Pluely API 生成提示词需要有效授权。");
       return;
     }
 
@@ -39,23 +51,71 @@ export const GenerateSystemPrompt = ({
       setIsGenerating(true);
       setError(null);
 
-      const response = await invoke<SystemPromptResponse>(
-        "create_system_prompt",
-        {
+      let response: SystemPromptResponse;
+      if (pluelyApiEnabled) {
+        response = await invoke<SystemPromptResponse>("create_system_prompt", {
           userPrompt: userPrompt.trim(),
+        });
+      } else {
+        const provider = allAiProviders.find(
+          (item) => item.id === selectedAIProvider.provider
+        );
+        if (!provider) {
+          throw new Error(
+            "请先在服务配置中选择并配置 AI 服务。"
+          );
         }
-      );
 
-      if (response.system_prompt && response.prompt_name) {
+        let generated = "";
+        for await (const chunk of fetchAIResponse({
+          provider,
+          selectedProvider: selectedAIProvider,
+          applyResponseSettings: false,
+          systemPrompt:
+            "You write clear, reusable system prompts for AI assistants. Return only a JSON object with two string fields: prompt_name (a short title) and system_prompt (the complete prompt). Do not include commentary or markdown fences.",
+          userMessage: `Create a system prompt for this request: ${userPrompt.trim()}\nReturn only valid JSON with prompt_name and system_prompt.`,
+        })) {
+          generated += chunk;
+        }
+
+        // Some providers wrap JSON in a code fence despite the instructions.
+        const json = generated
+          .trim()
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/\s*```$/, "");
+        try {
+          response = JSON.parse(json);
+        } catch {
+          throw new Error(
+            "AI 服务未返回有效的提示词，请检查配置后重试。"
+          );
+        }
+      }
+
+      if (
+        response &&
+        typeof response.system_prompt === "string" &&
+        response.system_prompt.trim() &&
+        typeof response.prompt_name === "string" &&
+        response.prompt_name.trim()
+      ) {
         onGenerate(response.system_prompt, response.prompt_name);
         setIsOpen(false);
         setUserPrompt("");
+      } else {
+        throw new Error(
+          "AI 服务返回的提示词为空或不完整，请重试。"
+        );
       }
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to generate prompt";
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+          ? err
+          : "生成提示词失败";
       setError(errorMessage);
-      console.error("Error generating system prompt:", err);
+      console.error("生成系统提示词失败：", err);
     } finally {
       setIsGenerating(false);
     }
@@ -65,12 +125,12 @@ export const GenerateSystemPrompt = ({
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
-          aria-label="Generate with AI"
+          aria-label="AI 生成"
           size="sm"
           variant="outline"
           className="w-fit"
         >
-          <SparklesIcon className="h-4 w-4" /> Generate with AI
+          <SparklesIcon className="h-4 w-4" /> AI 生成
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -80,15 +140,15 @@ export const GenerateSystemPrompt = ({
       >
         <div className="space-y-3">
           <div>
-            <p className="text-sm font-medium mb-1">Generate a system prompt</p>
+            <p className="text-sm font-medium mb-1">生成系统提示词</p>
             <p className="text-xs text-muted-foreground">
-              Describe the AI behavior you want, and we'll generate a prompt for
-              you.
+              描述你需要的 AI 行为。生成时使用{" "}
+              {pluelyApiEnabled ? "Pluely API" : "你选择的 AI 服务"}。
             </p>
           </div>
 
           <Textarea
-            placeholder="e.g., I want an AI that helps me with code reviews and focuses on best practices..."
+            placeholder="例如：我需要一个帮助审查代码、关注最佳实践的 AI 助手…"
             className="min-h-[100px] resize-none border-1 border-input/50 focus:border-primary/50 transition-colors"
             value={userPrompt}
             onChange={(e) => {
@@ -100,7 +160,7 @@ export const GenerateSystemPrompt = ({
 
           {error && <p className="text-xs text-destructive">{error}</p>}
 
-          {hasActiveLicense ? (
+          {canGenerate ? (
             <Button
               className="w-full"
               onClick={handleGenerate}
@@ -109,23 +169,22 @@ export const GenerateSystemPrompt = ({
               {isGenerating ? (
                 <>
                   <SparklesIcon className="h-4 w-4 animate-pulse" />
-                  Generating...
+                  正在生成…
                 </>
               ) : (
                 <>
                   <SparklesIcon className="h-4 w-4" />
-                  Generate
+                  生成
                 </>
               )}
             </Button>
           ) : (
             <div className="w-full flex flex-col gap-3">
               <p className="text-sm font-medium text-muted-foreground">
-                You need an active license to use this feature. Click the button
-                below to get a license.
+                使用 Pluely API 生成需要有效授权。也可以关闭 Pluely API，改用自己的 AI 服务。
               </p>
               <GetLicense
-                buttonText="Get License"
+                buttonText="获取授权"
                 buttonClassName="w-full"
                 setState={setIsOpen}
               />

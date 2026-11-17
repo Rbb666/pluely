@@ -51,6 +51,7 @@ export const PluelyPrompts = () => {
   const {
     setSystemPrompt,
     hasActiveLicense,
+    hasLocalFeatures,
     setSupportsImages,
     pluelyApiEnabled,
   } = useApp();
@@ -80,9 +81,14 @@ export const PluelyPrompts = () => {
     if (!fetchInitiated.current) {
       fetchInitiated.current = true;
       fetchPluelyPrompts();
-      fetchModels();
     }
   }, []);
+
+  useEffect(() => {
+    if (pluelyApiEnabled && hasActiveLicense) {
+      fetchModels();
+    }
+  }, [pluelyApiEnabled, hasActiveLicense]);
 
   // Watch for changes in user's selected prompt and clear Pluely selection if needed
   useEffect(() => {
@@ -120,9 +126,9 @@ export const PluelyPrompts = () => {
         setLastUpdated(response.last_updated);
       }
     } catch (err) {
-      console.error("Failed to fetch Pluely prompts:", err);
+      console.error("获取 Pluely 提示词失败：", err);
       setError(
-        typeof err === "string" ? err : "Failed to fetch Pluely prompts"
+        typeof err === "string" ? err : "获取 Pluely 提示词失败"
       );
     } finally {
       setIsLoading(false);
@@ -134,13 +140,13 @@ export const PluelyPrompts = () => {
       const fetchedModels = await invoke<Model[]>("fetch_models");
       setModels(fetchedModels);
     } catch (error) {
-      console.error("Failed to fetch models:", error);
+      console.error("获取模型列表失败：", error);
     }
   };
 
   const handleSelectPluelyPrompt = async (prompt: PluelyPrompt) => {
-    // Check if user has active license
-    if (!hasActiveLicense) {
+    // Applying a downloaded prompt is a local feature.
+    if (!hasLocalFeatures) {
       return;
     }
 
@@ -167,13 +173,11 @@ export const PluelyPrompts = () => {
         (model) => model.model === prompt.modelId || model.id === prompt.modelId
       );
 
-      if (matchingModel) {
+      if (matchingModel && pluelyApiEnabled && hasActiveLicense) {
         // Update supportsImages based on model modality
-        if (pluelyApiEnabled) {
-          const hasImageSupport =
-            matchingModel.modality?.includes("image") ?? false;
-          setSupportsImages(hasImageSupport);
-        }
+        const hasImageSupport =
+          matchingModel.modality?.includes("image") ?? false;
+        setSupportsImages(hasImageSupport);
 
         await invoke("secure_storage_save", {
           items: [
@@ -185,7 +189,7 @@ export const PluelyPrompts = () => {
         });
       }
     } catch (error) {
-      console.error("Failed to select Pluely prompt:", error);
+      console.error("选择 Pluely 提示词失败：", error);
     }
   };
 
@@ -204,14 +208,14 @@ export const PluelyPrompts = () => {
     return (
       <div className="space-y-4 mt-6">
         <Header
-          title="Pluely Default Prompts"
-          description="Pre-configured prompts with optimal model selection"
+          title="Pluely 预设提示词"
+          description="预设提示词及推荐模型"
         />
         <Empty
           isLoading={true}
           icon={Sparkles}
-          title="Loading prompts..."
-          description="Fetching Pluely default prompts"
+          title="正在加载提示词…"
+          description="正在获取 Pluely 预设提示词"
         />
       </div>
     );
@@ -221,8 +225,8 @@ export const PluelyPrompts = () => {
     return (
       <div className="space-y-4 mt-6">
         <Header
-          title="Pluely Default Prompts"
-          description="Pre-configured prompts with optimal model selection"
+          title="Pluely 预设提示词"
+          description="预设提示词及推荐模型"
         />
         <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3">
           <p className="text-sm text-destructive">{error}</p>
@@ -241,25 +245,25 @@ export const PluelyPrompts = () => {
         <div className="flex items-start gap-3 w-full">
           <div className="flex flex-col gap-1 w-full">
             <Header
-              title="Pluely Default Prompts"
-              description="Pre-configured prompts with optimal model pairings. Selecting a prompt will automatically set the recommended AI model for best results."
+              title="Pluely 预设提示词"
+              description="可用于当前 AI 服务的预设提示词。启用 Pluely API 时，选择提示词会同时切换至推荐模型。"
             />
             {lastUpdated && (
               <div className="flex justify-end items-center gap-1 text-[10px] text-muted-foreground">
                 <ClockIcon className="size-2" />
-                <span>Last updated: {moment(lastUpdated).fromNow()}</span>
+                <span>最后更新： {moment(lastUpdated).fromNow()}</span>
               </div>
             )}
           </div>
         </div>
-        {!hasActiveLicense && (
-          <GetLicense buttonText="Unlock" buttonClassName="shrink-0" />
+        {!hasLocalFeatures && (
+          <GetLicense buttonText="解锁" buttonClassName="shrink-0" />
         )}
       </div>
 
       <div
         className={`grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 pb-4 ${
-          !hasActiveLicense ? "opacity-60" : ""
+          !hasLocalFeatures ? "opacity-60" : ""
         }`}
       >
         {prompts.map((prompt, index) => {
@@ -268,7 +272,7 @@ export const PluelyPrompts = () => {
             <Card
               key={`${prompt.title}-${index}`}
               className={`relative border lg:border-2 shadow-none p-4 pb-10 gap-0 group transition-all hover:shadow-sm ${
-                hasActiveLicense ? "cursor-pointer" : "cursor-not-allowed"
+                hasLocalFeatures ? "cursor-pointer" : "cursor-not-allowed"
               } ${
                 isSelected
                   ? "!bg-primary/5 dark:!bg-primary/10 border-primary"
@@ -279,7 +283,7 @@ export const PluelyPrompts = () => {
               {isSelected && (
                 <CheckCircle2 className="size-5 text-green-500 flex-shrink-0 absolute top-2 right-2" />
               )}
-              {!hasActiveLicense && (
+              {!hasLocalFeatures && (
                 <LockIcon className="size-4 text-muted-foreground flex-shrink-0 absolute top-2 right-2" />
               )}
               <CardHeader className="p-0 pb-0 select-none">

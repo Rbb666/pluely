@@ -43,6 +43,8 @@ export type IContextType = {
   pluelyApiEnabled: boolean;
   setPluelyApiEnabled: (enabled: boolean) => Promise<void>;
   hasActiveLicense: boolean;
+  /** Local desktop features are available independently of hosted API access. */
+  hasLocalFeatures: boolean;
   setHasActiveLicense: Dispatch<SetStateAction<boolean>>;
   getActiveLicenseStatus: () => Promise<void>;
   selectedAudioDevices: {

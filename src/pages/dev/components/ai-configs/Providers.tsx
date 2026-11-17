@@ -1,5 +1,6 @@
 import { Button, Header, Input, Selection, TextInput } from "@/components";
 import { UseSettingsReturn } from "@/types";
+import { getProviderVariableLabel } from "@/lib";
 import curl2Json, { ResultJSON } from "@bany/curl-to-json";
 import { KeyIcon, TrashIcon } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -43,8 +44,8 @@ export const Providers = ({
     <div className="space-y-3">
       <div className="space-y-2">
         <Header
-          title="Select AI Provider"
-          description="Select your preferred AI service provider or custom providers to get started."
+          title="选择 AI 服务"
+          description="选择预设或自定义 AI 服务以开始使用。"
         />
         <Selection
           selected={selectedAIProvider?.provider}
@@ -52,13 +53,13 @@ export const Providers = ({
             const json = curl2Json(provider?.curl);
             return {
               label: provider?.isCustom
-                ? json?.url || "Custom Provider"
-                : provider?.id || "Custom Provider",
+                ? json?.url || "自定义服务"
+                : provider?.id || "自定义服务",
               value: provider?.id || "Custom Provider",
               isCustom: provider?.isCustom,
             };
           })}
-          placeholder="Choose your AI provider"
+          placeholder="选择 AI 服务"
           onChange={(value) => {
             onSetSelectedAIProvider({
               provider: value,
@@ -70,24 +71,24 @@ export const Providers = ({
 
       {localSelectedProvider ? (
         <Header
-          title={`Method: ${
-            localSelectedProvider?.method || "Invalid"
-          }, Endpoint: ${localSelectedProvider?.url || "Invalid"}`}
-          description={`If you want to use different url or method, you can always create a custom provider.`}
+          title={`请求方法： ${
+            localSelectedProvider?.method || "无效"
+          }，接口： ${localSelectedProvider?.url || "无效"}`}
+          description={"如需使用其他地址或请求方法，可添加自定义服务。"}
         />
       ) : null}
 
       {findKeyAndValue("api_key") ? (
         <div className="space-y-2">
           <Header
-            title="API Key"
-            description={`Enter your ${
+            title="API 密钥"
+            description={`输入 ${
               allAiProviders?.find(
                 (p) => p?.id === selectedAIProvider?.provider
               )?.isCustom
-                ? "Custom Provider"
+                ? "自定义服务"
                 : selectedAIProvider?.provider
-            } API key to authenticate and access AI models. Your key is stored locally and never shared.`}
+            } 的 API 密钥以访问 AI 模型。密钥保存在本地，仅用于调用对应服务。`}
           />
 
           <div className="space-y-2">
@@ -142,7 +143,7 @@ export const Providers = ({
                   disabled={isApiKeyEmpty()}
                   size="icon"
                   className="shrink-0 h-11 w-11"
-                  title="Submit API Key"
+                  title="保存 API 密钥"
                 >
                   <KeyIcon className="h-4 w-4" />
                 </Button>
@@ -163,7 +164,7 @@ export const Providers = ({
                   size="icon"
                   variant="destructive"
                   className="shrink-0 h-11 w-11"
-                  title="Remove API Key"
+                  title="移除 API 密钥"
                 >
                   <TrashIcon className="h-4 w-4" />
                 </Button>
@@ -179,6 +180,9 @@ export const Providers = ({
             (variable) => variable.key !== findKeyAndValue("api_key")?.key
           )
           .map((variable) => {
+            const variableLabel = getProviderVariableLabel(
+              variable?.key || variable?.value || "参数"
+            );
             const getVariableValue = () => {
               if (!variable?.key || !selectedAIProvider?.variables) return "";
               return selectedAIProvider.variables[variable.key] || "";
@@ -187,26 +191,23 @@ export const Providers = ({
             return (
               <div className="space-y-1" key={variable?.key}>
                 <Header
-                  title={variable?.value || ""}
-                  description={`add your preferred ${variable?.key?.replace(
-                    /_/g,
-                    " "
-                  )} for ${
+                  title={variableLabel}
+                  description={`填写${variableLabel}，服务：${
                     allAiProviders?.find(
                       (p) => p?.id === selectedAIProvider?.provider
                     )?.isCustom
-                      ? "Custom Provider"
+                      ? "自定义服务"
                       : selectedAIProvider?.provider
                   }`}
                 />
                 <TextInput
-                  placeholder={`Enter ${
+                  placeholder={`输入 ${
                     allAiProviders?.find(
                       (p) => p?.id === selectedAIProvider?.provider
                     )?.isCustom
-                      ? "Custom Provider"
+                      ? "自定义服务"
                       : selectedAIProvider?.provider
-                  } ${variable?.key?.replace(/_/g, " ") || "value"}`}
+                  } 的${variableLabel}`}
                   value={getVariableValue()}
                   onChange={(value) => {
                     if (!variable?.key || !selectedAIProvider) return;

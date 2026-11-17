@@ -157,7 +157,7 @@ async function* fetchPluelyAIResponse(params: {
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    yield `Pluely API Error: ${errorMessage}`;
+    yield `Pluely API 错误：${errorMessage}`;
   }
 }
 
@@ -168,6 +168,8 @@ export async function* fetchAIResponse(params: {
     variables: Record<string, string>;
   };
   systemPrompt?: string;
+  /** Disable chat length, language, and Markdown instructions for structured output. */
+  applyResponseSettings?: boolean;
   history?: Message[];
   userMessage: string;
   imagesBase64?: string[];
@@ -178,6 +180,7 @@ export async function* fetchAIResponse(params: {
       provider,
       selectedProvider,
       systemPrompt,
+      applyResponseSettings = true,
       history = [],
       userMessage,
       imagesBase64 = [],
@@ -189,7 +192,9 @@ export async function* fetchAIResponse(params: {
       return;
     }
 
-    const enhancedSystemPrompt = buildEnhancedSystemPrompt(systemPrompt);
+    const enhancedSystemPrompt = applyResponseSettings
+      ? buildEnhancedSystemPrompt(systemPrompt)
+      : systemPrompt;
 
     // Check if we should use Pluely API instead
     const usePluelyAPI = await shouldUsePluelyAPI();
@@ -204,10 +209,10 @@ export async function* fetchAIResponse(params: {
       return;
     }
     if (!provider) {
-      throw new Error(`Provider not provided`);
+      throw new Error(`尚未配置服务`);
     }
     if (!selectedProvider) {
-      throw new Error(`Selected provider not provided`);
+      throw new Error(`尚未选择服务`);
     }
 
     let curlJson;
@@ -215,8 +220,8 @@ export async function* fetchAIResponse(params: {
       curlJson = curl2Json(provider.curl);
     } catch (error) {
       throw new Error(
-        `Failed to parse curl: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `解析 cURL 失败：${
+          error instanceof Error ? error.message : "未知错误"
         }`
       );
     }
@@ -231,17 +236,17 @@ export async function* fetchAIResponse(params: {
         selectedProvider.variables[key].trim() === ""
       ) {
         throw new Error(
-          `Missing required variable: ${key}. Please configure it in settings.`
+          `缺少必填变量 ${key}，请在服务配置中填写。`
         );
       }
     }
 
     if (!userMessage) {
-      throw new Error("User message is required");
+      throw new Error("请输入消息内容");
     }
     if (imagesBase64.length > 0 && !provider.curl.includes("{{IMAGE}}")) {
       throw new Error(
-        `Provider ${provider?.id ?? "unknown"} does not support image input`
+        `服务 ${provider?.id ?? "unknown"} 不支持图片输入`
       );
     }
 
@@ -309,8 +314,8 @@ export async function* fetchAIResponse(params: {
       ) {
         return; // Silently return on abort
       }
-      yield `Network error during API request: ${
-        fetchError instanceof Error ? fetchError.message : "Unknown error"
+      yield `API 请求发生网络错误：${
+        fetchError instanceof Error ? fetchError.message : "未知错误"
       }`;
       return;
     }
@@ -320,7 +325,7 @@ export async function* fetchAIResponse(params: {
       try {
         errorText = await response.text();
       } catch {}
-      yield `API request failed: ${response.status} ${response.statusText}${
+      yield `API 请求失败：${response.status} ${response.statusText}${
         errorText ? ` - ${errorText}` : ""
       }`;
       return;
@@ -331,8 +336,8 @@ export async function* fetchAIResponse(params: {
       try {
         json = await response.json();
       } catch (parseError) {
-        yield `Failed to parse non-streaming response: ${
-          parseError instanceof Error ? parseError.message : "Unknown error"
+        yield `解析非流式回复失败：${
+          parseError instanceof Error ? parseError.message : "未知错误"
         }`;
         return;
       }
@@ -343,7 +348,7 @@ export async function* fetchAIResponse(params: {
     }
 
     if (!response.body) {
-      yield "Streaming not supported or response body missing";
+      yield "服务不支持流式回复，或响应内容为空";
       return;
     }
 
@@ -369,8 +374,8 @@ export async function* fetchAIResponse(params: {
         ) {
           return; // Silently return on abort
         }
-        yield `Error reading stream: ${
-          readError instanceof Error ? readError.message : "Unknown error"
+        yield `读取回复数据流失败：${
+          readError instanceof Error ? readError.message : "未知错误"
         }`;
         return;
       }
@@ -408,8 +413,8 @@ export async function* fetchAIResponse(params: {
     }
   } catch (error) {
     throw new Error(
-      `Error in fetchAIResponse: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `获取 AI 回复失败：${
+        error instanceof Error ? error.message : "未知错误"
       }`
     );
   }

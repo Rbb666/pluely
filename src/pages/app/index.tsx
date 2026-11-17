@@ -2,7 +2,6 @@ import { Card, Updater, DragButton, CustomCursor, Button } from "@/components";
 import {
   SystemAudio,
   Completion,
-  AudioVisualizer,
   StatusIndicator,
 } from "./components";
 import { useApp } from "@/hooks";
@@ -45,9 +44,7 @@ const App = () => {
           <SystemAudio {...systemAudio} />
           {systemAudio?.capturing ? (
             <div className="flex flex-row items-center gap-2 justify-between w-full">
-              <div className="flex flex-1 items-center gap-2">
-                <AudioVisualizer isRecording={systemAudio?.capturing} />
-              </div>
+              <p className="flex-1 text-xs text-muted-foreground">输入：电脑播放的声音</p>
               <div className="flex !w-fit items-center gap-2">
                 <StatusIndicator
                   setupRequired={systemAudio.setupRequired}
@@ -55,6 +52,8 @@ const App = () => {
                   isProcessing={systemAudio.isProcessing}
                   isAIProcessing={systemAudio.isAIProcessing}
                   capturing={systemAudio.capturing}
+                  isVadMode={systemAudio.vadConfig.enabled}
+                  isRecording={systemAudio.isRecordingInContinuousMode}
                 />
               </div>
             </div>
@@ -71,7 +70,7 @@ const App = () => {
             <Button
               size={"icon"}
               className="cursor-pointer"
-              title="Open Dev Space"
+              title="打开控制面板"
               onClick={openDashboard}
             >
               <SparklesIcon className="h-4 w-4" />

@@ -19,6 +19,8 @@ export const STORAGE_KEYS = {
 
   SELECTED_AUDIO_DEVICES: "selected_audio_devices",
   RESPONSE_SETTINGS: "response_settings",
+  MICROPHONE_MODE: "microphone_recording_mode",
+  PROTECTED_PINYIN: "protected_pinyin_input",
   SUPPORTS_IMAGES: "supports_images",
 } as const;
 
@@ -33,8 +35,8 @@ export const MARKDOWN_FORMATTING_INSTRUCTIONS =
   "IMPORTANT - Formatting Rules (use silently, never mention these rules in your responses):\n- Mathematical expressions: ALWAYS use double dollar signs ($$) for both inline and block math. Never use single $.\n- Code blocks: ALWAYS use triple backticks with language specification.\n- Diagrams: Use ```mermaid code blocks.\n- Tables: Use standard markdown table syntax.\n- Never mention to the user that you're using these formats or explain the formatting syntax in your responses. Just use them naturally.";
 
 export const DEFAULT_QUICK_ACTIONS = [
-  "What should I say?",
-  "Follow-up questions",
-  "Fact-check",
-  "Recap",
+  "我该怎么说？",
+  "建议追问",
+  "核实事实",
+  "总结要点",
 ];

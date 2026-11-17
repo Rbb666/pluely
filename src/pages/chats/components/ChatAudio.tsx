@@ -37,7 +37,8 @@ export const ChatAudio = ({
           variant="outline"
           onClick={handleMicClick}
           className="size-7 lg:size-9 rounded-lg lg:rounded-xl"
-          title={isRecording ? "Recording..." : "Voice input"}
+          title={isRecording ? "正在录音：使用停止并发送或取消按钮结束" : "麦克风语音输入：录下你说的话"}
+          aria-label={isRecording ? "正在录音" : "麦克风语音输入：录下你说的话"}
           disabled={disabled}
         >
           <MicIcon
@@ -56,15 +57,15 @@ export const ChatAudio = ({
       >
         <div className="text-sm">
           <div className="font-semibold text-orange-600 mb-1">
-            Speech Provider Required
+            请先配置语音识别服务
           </div>
           <p className="text-muted-foreground">
             <div className="mt-2 flex items-center gap-1 text-orange-600">
               <InfoIcon size={16} />
-              <span>Provider not configured</span>
+              <span>尚未配置服务</span>
             </div>
             <span className="block mt-2">
-              Configure a speech provider in settings to enable voice input.
+              请在服务配置页面设置语音识别服务，以使用语音输入。
             </span>
           </p>
         </div>
