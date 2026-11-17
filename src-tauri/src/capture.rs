@@ -132,6 +132,8 @@ pub async fn start_screen_capture(app: tauri::AppHandle) -> Result<(), String> {
                 .closable(false)
                 .minimizable(false)
                 .maximizable(false)
+                // Each monitor overlay needs its own protection before it is first shown.
+                .content_protected(true)
                 .visible(false)
                 .focused(true)
                 .accept_first_mouse(true)
