@@ -5,6 +5,7 @@ import { MAX_FILES } from "@/config";
 import { useApp } from "@/contexts";
 import {
   fetchAIResponse,
+  buildConversationHistory,
   createConversation,
   updateConversation,
   getConversationById,
@@ -162,11 +163,7 @@ export const useCompletion = () => {
       const signal = abortControllerRef.current.signal;
 
       try {
-        // Prepare message history for the AI
-        const messageHistory = state.conversationHistory.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
+        const messageHistory = buildConversationHistory(state.conversationHistory);
 
         // Handle image attachments
         const imagesBase64: string[] = [];
@@ -578,11 +575,7 @@ export const useCompletion = () => {
           const signal = abortControllerRef.current.signal;
 
           try {
-            // Prepare message history for the AI
-            const messageHistory = state.conversationHistory.map((msg) => ({
-              role: msg.role,
-              content: msg.content,
-            }));
+            const messageHistory = buildConversationHistory(state.conversationHistory);
 
             let fullResponse = "";
 

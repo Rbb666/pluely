@@ -58,6 +58,7 @@ const View = () => {
     messages,
     setMessages
   );
+  const { visibleMessages } = completion;
 
   useEffect(() => {
     const getMessages = async () => {
@@ -69,14 +70,14 @@ const View = () => {
 
   useEffect(() => {
     // Scroll to bottom when messages load
-    if (messages?.messages.length) {
+    if (visibleMessages.length) {
       setTimeout(() => {
         completion.messagesEndRef.current?.scrollIntoView({
           behavior: "smooth",
         });
       }, 100);
     }
-  }, [messages?.messages.length]);
+  }, [visibleMessages.length]);
 
   const handleDelete = async () => {
     if (deleting) return;
@@ -96,7 +97,7 @@ const View = () => {
       isMainTitle={false}
       allowBackButton={true}
       title={messages?.title || ""}
-      description={`共 ${messages?.messages.length ?? 0} 条消息`}
+      description={`共 ${visibleMessages.length} 条消息`}
       rightSlot={
         <div className="flex flex-row items-center gap-2">
           <Button
@@ -151,7 +152,7 @@ const View = () => {
         </div>
       }
     >
-      {messages?.messages.length === 0 ? (
+      {messages && visibleMessages.length === 0 ? (
         <Empty
           isLoading={false}
           icon={MessageCircleIcon}
@@ -160,7 +161,7 @@ const View = () => {
         />
       ) : (
         <div className="flex flex-col gap-4 pb-24 px-2">
-          {messages?.messages.map((message, index, array) => {
+          {visibleMessages.map((message, index, array) => {
             const isUser = message.role === "user";
             const showDate =
               index === 0 ||

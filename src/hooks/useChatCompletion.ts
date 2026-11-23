@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useApp } from "@/contexts";
-import { MAX_FILES } from "@/config";
+import { GEMINI_WEB2API_AI_PROVIDER, MAX_FILES } from "@/config";
 import {
+  buildConversationHistory,
   fetchAIResponse,
   updateConversation,
   getConversationById,
@@ -69,6 +70,12 @@ export const useChatCompletion = (
     error: null,
     attachedFiles: [],
   });
+  const [draftConversation, setDraftConversation] =
+    useState<ChatConversation | null>(null);
+  const activeConversation = messages?.id === conversationId ? messages : null;
+  const visibleConversation =
+    draftConversation?.id === conversationId ? draftConversation : activeConversation;
+  const visibleMessages = visibleConversation?.messages ?? [];
 
   const [micOpen, setMicOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -134,7 +141,7 @@ export const useChatCompletion = (
     async (speechText?: string) => {
       const input = speechText || state.input;
 
-      if (!input.trim()) {
+      if (!input.trim() || !activeConversation) {
         return;
       }
 
@@ -156,13 +163,10 @@ export const useChatCompletion = (
 
       abortControllerRef.current = new AbortController();
       const signal = abortControllerRef.current.signal;
+      setDraftConversation(null);
 
       try {
-        // Prepare message history for the AI
-        const messageHistory = (messages?.messages || []).map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
+        const messageHistory = buildConversationHistory(activeConversation.messages);
 
         // Handle image attachments
         const imagesBase64: string[] = [];
@@ -194,6 +198,13 @@ export const useChatCompletion = (
           }));
           return;
         }
+        if (signal.aborted || currentRequestIdRef.current !== requestId) return;
+
+        const geminiProxy =
+          !usePluelyAPI && provider?.id === GEMINI_WEB2API_AI_PROVIDER.id;
+        const setStreamingConversation = geminiProxy
+          ? setDraftConversation
+          : setMessages;
 
         // Add user message to UI immediately
         const timestamp = Date.now();
@@ -205,10 +216,19 @@ export const useChatCompletion = (
         };
 
         const updatedMessages = {
-          ...messages!,
-          messages: [...(messages?.messages || []), userMsg],
+          ...activeConversation,
+          messages: [...activeConversation.messages, userMsg],
         };
-        setMessages(updatedMessages);
+        setStreamingConversation(updatedMessages);
+        const assistantTimestamp = timestamp + MESSAGE_ID_OFFSET;
+        const assistantId = generateMessageId("assistant", assistantTimestamp);
+        const withReply = (content: string): ChatConversation => ({
+          ...updatedMessages,
+          messages: [
+            ...updatedMessages.messages,
+            { id: assistantId, role: "assistant", content, timestamp: assistantTimestamp },
+          ],
+        });
 
         // Clear input and set loading state
         setState((prev) => ({
@@ -246,36 +266,7 @@ export const useChatCompletion = (
             }
 
             fullResponse += chunk;
-
-            // Update the last message (assistant's response) in real-time
-            const assistantMsg: ChatMessage = {
-              id: generateMessageId("assistant", timestamp + MESSAGE_ID_OFFSET),
-              role: "assistant",
-              content: fullResponse,
-              timestamp: timestamp + MESSAGE_ID_OFFSET,
-            };
-
-            const updatedWithResponse = {
-              ...updatedMessages,
-              messages: [...updatedMessages.messages, assistantMsg],
-            };
-
-            // Check if assistant message already exists
-            const lastMessage =
-              updatedWithResponse.messages[
-                updatedWithResponse.messages.length - 1
-              ];
-            if (lastMessage.role === "assistant") {
-              // Update existing assistant message
-              updatedWithResponse.messages[
-                updatedWithResponse.messages.length - 1
-              ] = assistantMsg;
-            } else {
-              // Add new assistant message
-              updatedWithResponse.messages.push(assistantMsg);
-            }
-
-            setMessages(updatedWithResponse);
+            setStreamingConversation(withReply(fullResponse));
 
             // Auto-scroll during streaming
             scrollToBottom();
@@ -283,8 +274,10 @@ export const useChatCompletion = (
         } catch (e: any) {
           // Only show error if this is still the current request and not aborted
           if (currentRequestIdRef.current === requestId && !signal.aborted) {
+            setDraftConversation(null);
             setState((prev) => ({
               ...prev,
+              input: geminiProxy ? prev.input || input : prev.input,
               isLoading: false,
               error: e.message || "发生错误",
             }));
@@ -306,18 +299,11 @@ export const useChatCompletion = (
 
         // Save the conversation after successful completion
         if (fullResponse) {
-          const assistantMsg: ChatMessage = {
-            id: generateMessageId("assistant", timestamp + MESSAGE_ID_OFFSET),
-            role: "assistant",
-            content: fullResponse,
-            timestamp: timestamp + MESSAGE_ID_OFFSET,
-          };
-
-          const newMessages = [
-            ...(messages?.messages || []),
-            userMsg,
-            assistantMsg,
-          ];
+          const completed = withReply(fullResponse);
+          if (geminiProxy) {
+            setMessages(completed);
+            setDraftConversation(null);
+          }
 
           // Get existing conversation if updating
           let existingConversation = null;
@@ -331,16 +317,16 @@ export const useChatCompletion = (
 
           const title =
             existingConversation?.title ||
-            messages?.title ||
+            activeConversation.title ||
             generateConversationTitle(input);
 
           const conversation: ChatConversation = {
             id: conversationId,
             title,
-            messages: newMessages,
+            messages: completed.messages,
             createdAt:
               existingConversation?.createdAt ||
-              messages?.createdAt ||
+              activeConversation.createdAt ||
               timestamp,
             updatedAt: timestamp,
           };
@@ -352,15 +338,17 @@ export const useChatCompletion = (
             const updatedConversation = await getConversationById(
               conversationId
             );
-            if (updatedConversation) {
+            if (updatedConversation && currentRequestIdRef.current === requestId) {
               setMessages(updatedConversation);
             }
           } catch (error) {
             console.error("Failed to save conversation:", error);
-            setState((prev) => ({
-              ...prev,
-              error: "保存聊天记录失败，请重试。",
-            }));
+            if (currentRequestIdRef.current === requestId) {
+              setState((prev) => ({
+                ...prev,
+                error: "保存聊天记录失败，请重试。",
+              }));
+            }
           }
         }
       } catch (error) {
@@ -380,7 +368,7 @@ export const useChatCompletion = (
       selectedAIProvider,
       allAiProviders,
       systemPrompt,
-      messages,
+      activeConversation,
       conversationId,
       setMessages,
     ]
@@ -392,6 +380,7 @@ export const useChatCompletion = (
       abortControllerRef.current = null;
     }
     currentRequestIdRef.current = null;
+    setDraftConversation(null);
     setState((prev) => ({ ...prev, isLoading: false }));
   }, []);
 
@@ -678,8 +667,10 @@ export const useChatCompletion = (
     };
   }, []);
 
-  // Cleanup abort controller on unmount
+  // Discard in-flight UI state when leaving the conversation.
   useEffect(() => {
+    setDraftConversation(null);
+    setState((prev) => (prev.isLoading ? { ...prev, isLoading: false } : prev));
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -687,9 +678,10 @@ export const useChatCompletion = (
       }
       currentRequestIdRef.current = null;
     };
-  }, []);
+  }, [conversationId]);
 
   return {
+    visibleMessages,
     input: state.input,
     setInput,
     isLoading: state.isLoading,

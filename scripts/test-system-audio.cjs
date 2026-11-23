@@ -12,9 +12,13 @@ const deferred = () => {
   return { promise, resolve };
 };
 const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
-const code = ts.transpileModule(fs.readFileSync('src/hooks/useSystemAudio.ts', 'utf8'), {
+const compileOptions = {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText;
+};
+const code = ts.transpileModule(fs.readFileSync('src/hooks/useSystemAudio.ts', 'utf8'), compileOptions).outputText;
+const common = {};
+const commonCode = fs.readFileSync('src/lib/functions/common.function.ts', 'utf8');
+vm.runInNewContext(ts.transpileModule(commonCode, compileOptions).outputText, { exports: common });
 
 function harness() {
   const slots = [];
@@ -25,6 +29,7 @@ function harness() {
   const pendingSaves = new Map();
   const lookup = deferred();
   let cursor = 0;
+  let timestamp = 0;
   let conversationId = 0;
   let replyGate;
   let pendingEffects = [];
@@ -80,6 +85,7 @@ function harness() {
       if (typeof id === 'symbol') pendingSaves.delete(id);
       else clearTimeout(id);
     },
+    Date: { now: () => (timestamp += 10) },
     console: { log() {}, error() {}, warn() {} },
     window: { addEventListener() {}, removeEventListener() {} },
     require(name) {
@@ -95,10 +101,11 @@ function harness() {
       if (name === '@/contexts') return { useApp: () => app };
       if (name === '@/config') return { DEFAULT_QUICK_ACTIONS: [], DEFAULT_SYSTEM_PROMPT: '', STORAGE_KEYS: {} };
       if (name === '@/lib/functions') return {
-        fetchSTT: async (args) => { sttCalls.push(args); return 'recognized speech'; },
+        buildConversationHistory: common.buildConversationHistory,
+        fetchSTT: async (args) => { sttCalls.push(args); return `recognized speech ${sttCalls.length}`; },
         fetchAIResponse: async function* (args) {
           aiCalls.push(args);
-          yield 'reply';
+          yield `reply ${aiCalls.length}`;
           await replyGate?.promise;
         },
       };
@@ -150,6 +157,15 @@ function harness() {
   await active.speak();
   assert.equal(active.sttCalls.length, 1, 'an active utterance must reach ASR');
   assert.equal(active.aiCalls.length, 1, 'an active transcription must reach the LLM');
+  active.render();
+  await flush();
+  await active.speak();
+  active.render();
+  await flush();
+  await active.speak();
+  assert.deepEqual(Array.from(active.aiCalls[2].history, (message) => message.content), [
+    'recognized speech 1', 'reply 1', 'recognized speech 2', 'reply 2',
+  ]);
   active.unmount();
 
   const stopped = harness();
@@ -213,5 +229,5 @@ function harness() {
   assert.deepEqual(deleted.saves, [['create', old], ['update', old]]);
   deleted.unmount();
 
-  console.log('System audio checks passed: cancellation and deletion during an active reply.');
+  console.log('System audio checks passed: chronological history, cancellation, and deletion during an active reply.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

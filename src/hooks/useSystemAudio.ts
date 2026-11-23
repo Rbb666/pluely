@@ -3,7 +3,7 @@ import { useWindowResize, useGlobalShortcuts } from ".";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useApp } from "@/contexts";
-import { fetchSTT, fetchAIResponse } from "@/lib/functions";
+import { buildConversationHistory, fetchSTT, fetchAIResponse } from "@/lib/functions";
 import {
   DEFAULT_QUICK_ACTIONS,
   DEFAULT_SYSTEM_PROMPT,
@@ -19,7 +19,6 @@ import {
   generateConversationId,
   generateMessageId,
 } from "@/lib";
-import { Message } from "@/types/completion";
 
 // VAD Configuration interface matching Rust
 export interface VadConfig {
@@ -322,14 +321,10 @@ export function useSystemAudio() {
                   ? systemPrompt || DEFAULT_SYSTEM_PROMPT
                   : contextContent || DEFAULT_SYSTEM_PROMPT;
 
-                const previousMessages = conversation.messages.map((msg) => {
-                  return { role: msg.role, content: msg.content };
-                });
-
                 await processWithAI(
                   transcription,
                   effectiveSystemPrompt,
-                  previousMessages
+                  conversation.messages
                 );
               } else {
                 setError("语音识别结果为空");
@@ -441,12 +436,11 @@ export function useSystemAudio() {
       : contextContent || DEFAULT_SYSTEM_PROMPT;
 
     // Include the most recent transcription in conversation history if it exists
-    let updatedMessages = [...conversation.messages];
+    const updatedMessages = [...conversation.messages];
 
     if (lastTranscription && lastTranscription.trim()) {
-      const lastMessage = updatedMessages[updatedMessages.length - 1];
-      // Only add if it's not already the last message
-      if (!lastMessage || lastMessage.content !== lastTranscription) {
+      const latestUserMessage = updatedMessages.find((msg) => msg.role === "user");
+      if (latestUserMessage?.content !== lastTranscription) {
         const timestamp = Date.now();
         const userMessage = {
           id: generateMessageId("user", timestamp),
@@ -466,11 +460,7 @@ export function useSystemAudio() {
       }
     }
 
-    const previousMessages = updatedMessages.map((msg) => {
-      return { role: msg.role, content: msg.content };
-    });
-
-    await processWithAI(action, effectiveSystemPrompt, previousMessages);
+    await processWithAI(action, effectiveSystemPrompt, updatedMessages);
   };
 
   // Start continuous recording manually
@@ -519,7 +509,7 @@ export function useSystemAudio() {
     async (
       transcription: string,
       prompt: string,
-      previousMessages: Message[]
+      previousMessages: ChatMessage[]
     ) => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -555,7 +545,7 @@ export function useSystemAudio() {
             provider: usePluelyAPI ? undefined : provider,
             selectedProvider: selectedAIProvider,
             systemPrompt: prompt,
-            history: previousMessages,
+            history: buildConversationHistory(previousMessages),
             userMessage: transcription,
             imagesBase64: [],
             signal: controller.signal,
@@ -566,6 +556,7 @@ export function useSystemAudio() {
           }
         } catch (aiError: any) {
           if (!controller.signal.aborted) setError(aiError.message || "获取 AI 回复失败");
+          return;
         }
 
         if (fullResponse && !controller.signal.aborted) {

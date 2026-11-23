@@ -1,9 +1,10 @@
 import { Button, Header, Input, Selection, TextInput } from "@/components";
+import { GEMINI_WEB2API_AI_PROVIDER } from "@/config";
 import { UseSettingsReturn } from "@/types";
 import { getProviderVariableLabel } from "@/lib";
-import curl2Json, { ResultJSON } from "@bany/curl-to-json";
+import curl2Json from "@bany/curl-to-json";
 import { KeyIcon, TrashIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { GeminiProxySettings } from "./GeminiProxySettings";
 
 export const Providers = ({
   allAiProviders,
@@ -11,20 +12,13 @@ export const Providers = ({
   onSetSelectedAIProvider,
   variables,
 }: UseSettingsReturn) => {
-  const [localSelectedProvider, setLocalSelectedProvider] =
-    useState<ResultJSON | null>(null);
-
-  useEffect(() => {
-    if (selectedAIProvider?.provider) {
-      const provider = allAiProviders?.find(
-        (p) => p?.id === selectedAIProvider?.provider
-      );
-      if (provider) {
-        const json = curl2Json(provider?.curl);
-        setLocalSelectedProvider(json as ResultJSON);
-      }
-    }
-  }, [selectedAIProvider?.provider]);
+  const selectedProvider = allAiProviders.find(
+    (provider) => provider.id === selectedAIProvider.provider
+  );
+  const isGeminiProxy = selectedAIProvider.provider === GEMINI_WEB2API_AI_PROVIDER.id;
+  const localSelectedProvider = selectedProvider?.curl
+    ? curl2Json(selectedProvider.curl)
+    : null;
 
   const findKeyAndValue = (key: string) => {
     return variables?.find((v) => v?.key === key);
@@ -50,7 +44,11 @@ export const Providers = ({
         <Selection
           selected={selectedAIProvider?.provider}
           options={allAiProviders?.map((provider) => {
-            const json = curl2Json(provider?.curl);
+            if (provider.id === GEMINI_WEB2API_AI_PROVIDER.id) {
+              return { label: GEMINI_WEB2API_AI_PROVIDER.name, value: provider.id };
+            }
+
+            const json = provider.isCustom ? curl2Json(provider.curl) : null;
             return {
               label: provider?.isCustom
                 ? json?.url || "自定义服务"
@@ -69,6 +67,18 @@ export const Providers = ({
         />
       </div>
 
+      {isGeminiProxy && (
+        <GeminiProxySettings
+          variables={selectedAIProvider.variables}
+          onChange={(key, value) =>
+            onSetSelectedAIProvider({
+              provider: GEMINI_WEB2API_AI_PROVIDER.id,
+              variables: { ...selectedAIProvider.variables, [key]: value },
+            })
+          }
+        />
+      )}
+
       {localSelectedProvider ? (
         <Header
           title={`请求方法： ${
@@ -78,7 +88,7 @@ export const Providers = ({
         />
       ) : null}
 
-      {findKeyAndValue("api_key") ? (
+      {!isGeminiProxy && findKeyAndValue("api_key") ? (
         <div className="space-y-2">
           <Header
             title="API 密钥"
@@ -175,7 +185,7 @@ export const Providers = ({
       ) : null}
 
       <div className="space-y-4 mt-2">
-        {variables
+        {(isGeminiProxy ? [] : variables)
           .filter(
             (variable) => variable.key !== findKeyAndValue("api_key")?.key
           )
