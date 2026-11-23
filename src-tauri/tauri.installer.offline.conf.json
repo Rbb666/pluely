@@ -1,0 +1,13 @@
+{
+  "bundle": {
+    "windows": {
+      "webviewInstallMode": {
+        "type": "fixedRuntime",
+        "path": "runtime"
+      },
+      "nsis": {
+        "installerHooks": "windows/fixed-runtime.nsh"
+      }
+    }
+  }
+}

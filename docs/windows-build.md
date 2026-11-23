@@ -6,25 +6,37 @@
 
 仓库的 **Actions → Windows installer** 在推送到 `master`、向 `master` 发起 Pull Request 或手动点击 **Run workflow** 时构建 Windows x64 安装包。
 
-工作流安装锁定的 npm 和 Cargo 依赖，执行前端回归检查与 Rust 测试，下载并核验固定版 WebView2，最后构建简体中文 NSIS 安装程序。运行成功后，在该次运行的 **Artifacts** 中下载 `Pluely-Local-Windows-x64-<commit SHA>`，解压即可得到安装包和同名 `.sha256` 校验文件。产物保留 14 天。
+工作流安装锁定的 npm 和 Cargo 依赖，执行前端回归检查与 Rust 测试，最后构建简体中文 NSIS 安装程序。运行成功后，在该次运行的 **Artifacts** 中下载 `Pluely-Local-Windows-x64-<commit SHA>`，解压即可得到安装包和同名 `.sha256` 校验文件。产物保留 14 天。
 
-安装包包含离线 WebView2 运行环境，不需要在目标电脑上单独下载它。工作流只上传构建产物，不自动创建 GitHub Release，也不嵌入用户配置、聊天记录或 API 密钥。首次使用时配置自己的 AI / 语音服务；截图提问需要支持图片输入的模型。官方云端服务仍需要对应的服务配置和许可。
+安装程序会检测目标电脑上的 WebView2 Evergreen 运行时。已安装时直接复用，缺少时需要联网从微软下载并安装。[Tauri 的 WebView2 安装选项](https://v2.tauri.app/distribute/windows-installer/#webview2-installation-options)
+
+首次使用时请配置自己的 AI 和语音服务。截图提问需要支持图片输入的模型。官方云端服务仍需要对应的服务配置和许可。
 
 ## 本地构建
 
 需要 Windows x64、Node.js 24、Rust 1.100.0 MSVC 工具链，以及 Visual Studio C++ Build Tools 和 Windows SDK。RTK 是可选的，脚本在未安装 RTK 时直接调用 npm。
 
-在仓库根目录运行：
+在仓库根目录安装依赖并构建默认安装包。
 
 ```powershell
 npm ci
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-windows-runtime.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer.ps1
 ```
 
-安装包输出到 `src-tauri/target/release/bundle/nsis/`。准备运行库的脚本只接受尚不存在的目标目录；如果 `src-tauri/runtime/` 已有已验证的完整运行库，直接执行构建步骤即可。
+安装包默认输出到 `src-tauri/target/release/bundle/nsis/`。
 
-只生成程序、不生成安装包时：
+### 离线安装包
+
+目标电脑缺少 WebView2 且无法联网时，可构建内含固定版 WebView2 的离线安装包。安装前端依赖后，在仓库根目录运行以下命令。如果 `src-tauri/runtime/` 已有经过校验的完整运行库，直接执行第二条命令。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-windows-runtime.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer.ps1 -Offline
+```
+
+离线包默认输出到 `src-tauri/target/offline/release/bundle/nsis/`。如果已指定 `CARGO_TARGET_DIR`，离线构建会使用其下的 `offline` 子目录。两种安装包使用同一个应用标识。
+
+### 单独构建程序
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-local.ps1 -Release
