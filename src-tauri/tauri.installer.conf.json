@@ -10,14 +10,12 @@
     "useLocalToolsDir": true,
     "windows": {
       "webviewInstallMode": {
-        "type": "fixedRuntime",
-        "path": "runtime"
+        "type": "downloadBootstrapper"
       },
       "nsis": {
         "installMode": "currentUser",
         "languages": ["SimpChinese"],
-        "displayLanguageSelector": false,
-        "installerHooks": "windows/fixed-runtime.nsh"
+        "displayLanguageSelector": false
       }
     }
   },
