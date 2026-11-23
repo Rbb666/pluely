@@ -5,7 +5,8 @@ import { MAX_FILES } from "@/config";
 import { useApp } from "@/contexts";
 import {
   fetchAIResponse,
-  saveConversation,
+  createConversation,
+  updateConversation,
   getConversationById,
   generateConversationTitle,
   shouldUsePluelyAPI,
@@ -15,7 +16,7 @@ import {
   generateRequestId,
   getResponseSettings,
 } from "@/lib";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
 // Types for completion
@@ -266,6 +267,7 @@ export const useCompletion = () => {
             fullResponse,
             state.attachedFiles
           );
+          if (currentRequestIdRef.current !== requestId) return;
           // Clear input and attached files after saving
           setState((prev) => ({
             ...prev,
@@ -331,9 +333,6 @@ export const useCompletion = () => {
     });
   }, []);
 
-  // Note: saveConversation, getConversationById, and generateConversationTitle
-  // are now imported from lib/database/chat-history.action.ts
-
   const loadConversation = useCallback((conversation: ChatConversation) => {
     setState((prev) => ({
       ...prev,
@@ -347,6 +346,7 @@ export const useCompletion = () => {
   }, []);
 
   const startNewConversation = useCallback(() => {
+    cancel();
     setState((prev) => ({
       ...prev,
       currentConversationId: null,
@@ -357,7 +357,7 @@ export const useCompletion = () => {
       isLoading: false,
       attachedFiles: [],
     }));
-  }, []);
+  }, [cancel]);
 
   const saveCurrentConversation = useCallback(
     async (
@@ -373,6 +373,7 @@ export const useCompletion = () => {
 
       const conversationId =
         state.currentConversationId || generateConversationId("chat");
+      const requestId = currentRequestIdRef.current;
       const timestamp = Date.now();
 
       const userMsg: ChatMessage = {
@@ -418,7 +419,10 @@ export const useCompletion = () => {
       };
 
       try {
-        await saveConversation(conversation);
+        if (currentRequestIdRef.current !== requestId) return;
+        if (state.currentConversationId) await updateConversation(conversation);
+        else await createConversation(conversation);
+        if (currentRequestIdRef.current !== requestId) return;
 
         setState((prev) => ({
           ...prev,
@@ -427,6 +431,7 @@ export const useCompletion = () => {
         }));
       } catch (error) {
         console.error("Failed to save conversation:", error);
+        if (currentRequestIdRef.current !== requestId) return;
         // Show error to user
         setState((prev) => ({
           ...prev,
@@ -479,14 +484,6 @@ export const useCompletion = () => {
       startNewConversation();
     };
 
-    const handleConversationDeleted = (event: any) => {
-      const deletedId = event.detail;
-      // If the currently active conversation was deleted, start a new one
-      if (state.currentConversationId === deletedId) {
-        startNewConversation();
-      }
-    };
-
     const handleStorageChange = async (e: StorageEvent) => {
       if (e.key === "pluely-conversation-selected" && e.newValue) {
         try {
@@ -506,7 +503,6 @@ export const useCompletion = () => {
 
     window.addEventListener("conversationSelected", handleConversationSelected);
     window.addEventListener("newConversation", handleNewConversation);
-    window.addEventListener("conversationDeleted", handleConversationDeleted);
     window.addEventListener("storage", handleStorageChange);
 
     return () => {
@@ -515,13 +511,21 @@ export const useCompletion = () => {
         handleConversationSelected
       );
       window.removeEventListener("newConversation", handleNewConversation);
-      window.removeEventListener(
-        "conversationDeleted",
-        handleConversationDeleted
-      );
       window.removeEventListener("storage", handleStorageChange);
     };
   }, [loadConversation, startNewConversation, state.currentConversationId]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    const unlisten = listen<string[]>("conversations-deleted", ({ payload }) => {
+      if (state.currentConversationId && payload.includes(state.currentConversationId)) {
+        startNewConversation();
+      }
+    });
+    return () => {
+      void unlisten.then((unsubscribe) => unsubscribe()).catch(console.error);
+    };
+  }, [startNewConversation, state.currentConversationId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -651,6 +655,7 @@ export const useCompletion = () => {
               await saveCurrentConversation(prompt, fullResponse, [
                 attachedFile,
               ]);
+              if (currentRequestIdRef.current !== requestId) return;
               // Clear input after saving
               setState((prev) => ({
                 ...prev,

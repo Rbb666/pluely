@@ -21,8 +21,12 @@ function harness() {
   const listeners = new Map();
   const sttCalls = [];
   const aiCalls = [];
+  const saves = [];
+  const pendingSaves = new Map();
   const lookup = deferred();
   let cursor = 0;
+  let conversationId = 0;
+  let replyGate;
   let pendingEffects = [];
   let hook;
   const sameDeps = (left, right) => left && right && left.length === right.length &&
@@ -65,7 +69,17 @@ function harness() {
   const resizeWindow = () => {};
   const exports = {};
   vm.runInNewContext(code, {
-    exports, Blob, Uint8Array, AbortController, atob, setTimeout, clearTimeout,
+    exports, Blob, Uint8Array, AbortController, atob,
+    setTimeout(callback, delay) {
+      if (delay !== 500) return setTimeout(callback, delay);
+      const id = Symbol('save');
+      pendingSaves.set(id, callback);
+      return id;
+    },
+    clearTimeout(id) {
+      if (typeof id === 'symbol') pendingSaves.delete(id);
+      else clearTimeout(id);
+    },
     console: { log() {}, error() {}, warn() {} },
     window: { addEventListener() {}, removeEventListener() {} },
     require(name) {
@@ -82,14 +96,20 @@ function harness() {
       if (name === '@/config') return { DEFAULT_QUICK_ACTIONS: [], DEFAULT_SYSTEM_PROMPT: '', STORAGE_KEYS: {} };
       if (name === '@/lib/functions') return {
         fetchSTT: async (args) => { sttCalls.push(args); return 'recognized speech'; },
-        fetchAIResponse: async function* (args) { aiCalls.push(args); yield 'reply'; },
+        fetchAIResponse: async function* (args) {
+          aiCalls.push(args);
+          yield 'reply';
+          await replyGate?.promise;
+        },
       };
       if (name === '@/lib') return {
         safeLocalStorage: { getItem: () => null, setItem() {} },
         shouldUsePluelyAPI: () => lookup.promise,
-        generateConversationTitle: (text) => text, saveConversation: async () => {},
+        generateConversationTitle: (text) => text,
+        createConversation: async ({ id }) => { saves.push(['create', id]); },
+        updateConversation: async ({ id }) => { saves.push(['update', id]); },
         CONVERSATION_SAVE_DEBOUNCE_MS: 500,
-        generateConversationId: () => 'test-conversation', generateMessageId: () => 'test-message',
+        generateConversationId: () => `test-conversation-${++conversationId}`, generateMessageId: () => 'test-message',
       };
       throw new Error(`Unexpected module: ${name}`);
     },
@@ -109,8 +129,17 @@ function harness() {
     return callbacks[0]({ payload: Buffer.from('synthetic audio').toString('base64') });
   };
   const unmount = () => { for (const value of slots) value?.cleanup?.(); };
+  const save = async () => {
+    const callbacks = [...pendingSaves.values()];
+    pendingSaves.clear();
+    for (const callback of callbacks) await callback();
+  };
+  const remove = (id) => {
+    for (const listener of listeners.get('conversations-deleted') ?? []) listener({ payload: [id] });
+  };
+  const holdReply = () => { replyGate = deferred(); return replyGate.resolve; };
   render();
-  return { lookup, sttCalls, aiCalls, render, start, stop, speak, unmount };
+  return { lookup, sttCalls, aiCalls, render, start, stop, speak, unmount, saves, save, remove, holdReply };
 }
 
 (async () => {
@@ -150,5 +179,39 @@ function harness() {
   assert.equal(restarted.aiCalls.length, 1);
   restarted.unmount();
 
-  console.log('System audio cancellation passed: active speech, stop during provider lookup, stale session after restart.');
+  const deleted = harness();
+  await flush();
+  await deleted.start();
+  deleted.lookup.resolve(false);
+  await deleted.speak();
+  const old = deleted.render().conversation.id;
+  await flush();
+  await deleted.save();
+  assert.deepEqual(deleted.saves, [['create', old]]);
+  await deleted.speak();
+  deleted.render();
+  await flush();
+  await deleted.save();
+  assert.deepEqual(deleted.saves, [['create', old], ['update', old]]);
+  await deleted.speak();
+  deleted.render();
+  await flush();
+
+  const finishReply = deleted.holdReply();
+  const reply = deleted.speak();
+  await flush();
+  const activeRequest = deleted.aiCalls.at(-1);
+  assert.equal(deleted.aiCalls.length, 4);
+  deleted.remove(old);
+  assert.equal(activeRequest.signal.aborted, true);
+  await deleted.save();
+  finishReply();
+  await reply;
+  const fresh = deleted.render().conversation;
+  assert.notEqual(fresh.id, old);
+  assert.equal(fresh.messages.length, 0);
+  assert.deepEqual(deleted.saves, [['create', old], ['update', old]]);
+  deleted.unmount();
+
+  console.log('System audio checks passed: cancellation and deletion during an active reply.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

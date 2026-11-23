@@ -1,34 +1,49 @@
-import { Button } from "@/components";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components";
 
 interface DeleteConfirmationDialogProps {
-  deleteConfirm: string | null;
+  count: number;
+  all?: boolean;
+  deleting: boolean;
+  error: string;
   cancelDelete: () => void;
   confirmDelete: () => void;
 }
 
 export const DeleteConfirmationDialog = ({
-  deleteConfirm,
+  count,
+  all = false,
+  deleting,
+  error,
   cancelDelete,
   confirmDelete,
 }: DeleteConfirmationDialogProps) => {
-  if (!deleteConfirm) return null;
-
   return (
-    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-background border rounded-lg p-6 max-w-md mx-4">
-        <h3 className="text-lg font-semibold mb-2">删除对话</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          确定要删除这条对话吗？此操作无法撤销。
-        </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={cancelDelete}>
+    <Dialog open={count > 0} onOpenChange={(open) => { if (!open && !deleting) cancelDelete(); }}>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>{all ? "删除全部聊天记录" : "删除会话"}</DialogTitle>
+          <DialogDescription>
+            将永久删除所选的 {count} 条会话及其中的消息。
+          </DialogDescription>
+        </DialogHeader>
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        <DialogFooter>
+          <Button variant="outline" disabled={deleting} onClick={cancelDelete}>
             取消
           </Button>
-          <Button variant="destructive" onClick={confirmDelete}>
-            删除
+          <Button variant="destructive" disabled={deleting} onClick={confirmDelete}>
+            {deleting ? "正在删除…" : all ? "删除全部" : "确认删除"}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

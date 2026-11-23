@@ -1,4 +1,5 @@
 import { AIProviders, STTProviders } from "./components";
+import { PluelyCloudSettings } from "./components/PluelyCloudSettings";
 import Contribute from "@/components/Contribute";
 import { useSettings } from "@/hooks";
 import { PageLayout } from "@/layouts";
@@ -8,6 +9,7 @@ const DevSpace = () => {
 
   return (
     <PageLayout title="服务配置" description="配置 AI 和语音识别服务">
+      <PluelyCloudSettings />
       <Contribute />
       {/* Provider Selection */}
       <AIProviders {...settings} />

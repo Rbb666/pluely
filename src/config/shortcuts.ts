@@ -3,8 +3,8 @@ import { ShortcutAction } from "@/types";
 export const DEFAULT_SHORTCUT_ACTIONS: ShortcutAction[] = [
   {
     id: "toggle_dashboard",
-    name: "显示/隐藏控制面板",
-    description: "打开或关闭控制面板窗口",
+    name: "显示/隐藏聊天记录与设置",
+    description: "显示或隐藏聊天记录与设置窗口",
     defaultKey: {
       macos: "cmd+shift+d",
       windows: "ctrl+shift+d",

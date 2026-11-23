@@ -1,7 +1,7 @@
 import { SparklesIcon } from "lucide-react";
 import { Button } from "@/components";
 import { cn } from "@/lib/utils";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMenuItems, useVersion } from "@/hooks";
 
@@ -14,8 +14,9 @@ export const Sidebar = () => {
   return (
     <aside className="flex w-56 flex-col select-none pt-2">
       {/* Logo */}
-      <div
-        onClick={() => navigate("/dashboard")}
+      <Link
+        to="/chats"
+        aria-label="Pluely 聊天记录"
         className="flex h-16 items-center px-4 pt-10 gap-1.5"
       >
         <div className="flex size-6 lg:size-7 items-center justify-center rounded-lg bg-primary">
@@ -29,7 +30,7 @@ export const Sidebar = () => {
             {isLoading ? "加载中…" : `(v${version})`}
           </span>
         </div>
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-6">

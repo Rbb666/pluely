@@ -39,6 +39,8 @@ const View = () => {
   const { hasLocalFeatures, supportsImages } = useApp();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatConversation | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const {
     handleDeleteConfirm,
@@ -77,8 +79,16 @@ const View = () => {
   }, [messages?.messages.length]);
 
   const handleDelete = async () => {
-    await confirmDelete();
-    navigate(-1);
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError("");
+    completion.cancel();
+    if (await confirmDelete()) {
+      navigate("/chats");
+    } else {
+      setDeleteError("删除会话失败，请重试。");
+    }
+    setDeleting(false);
   };
 
   return (
@@ -325,8 +335,13 @@ const View = () => {
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
-        deleteConfirm={deleteConfirm}
-        cancelDelete={cancelDelete}
+        count={deleteConfirm ? 1 : 0}
+        deleting={deleting}
+        error={deleteError}
+        cancelDelete={() => {
+          setDeleteError("");
+          cancelDelete();
+        }}
         confirmDelete={handleDelete}
       />
     </PageLayout>

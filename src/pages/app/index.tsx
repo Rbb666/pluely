@@ -70,7 +70,8 @@ const App = () => {
             <Button
               size={"icon"}
               className="cursor-pointer"
-              title="打开控制面板"
+              title="打开聊天记录与设置"
+              aria-label="打开聊天记录与设置"
               onClick={openDashboard}
             >
               <SparklesIcon className="h-4 w-4" />
