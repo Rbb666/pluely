@@ -3,7 +3,7 @@ import { useApp } from "@/contexts";
 import { MAX_FILES } from "@/config";
 import {
   fetchAIResponse,
-  saveConversation,
+  updateConversation,
   getConversationById,
   generateConversationTitle,
   shouldUsePluelyAPI,
@@ -346,7 +346,7 @@ export const useChatCompletion = (
           };
 
           try {
-            await saveConversation(conversation);
+            await updateConversation(conversation);
 
             // Reload conversation from database to ensure consistency
             const updatedConversation = await getConversationById(

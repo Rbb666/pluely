@@ -6,7 +6,6 @@ import {
   AudioLinesIcon,
   SquareSlashIcon,
   MonitorIcon,
-  HomeIcon,
   PowerIcon,
   MailIcon,
   CoffeeIcon,
@@ -27,11 +26,6 @@ export const useMenuItems = () => {
     href: string;
     count?: number;
   }[] = [
-    {
-      icon: HomeIcon,
-      label: "控制面板",
-      href: "/dashboard",
-    },
     {
       icon: MessagesSquare,
       label: "聊天记录",

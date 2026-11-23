@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import { emit } from "@tauri-apps/api/event";
 import {
   getAllConversations,
-  deleteConversation,
+  deleteConversations,
   DOWNLOAD_SUCCESS_DISPLAY_MS,
 } from "@/lib";
 import { ChatConversation } from "@/types/completion";
@@ -25,7 +26,8 @@ export interface UseHistoryReturn {
     e: React.MouseEvent
   ) => void;
   handleDeleteConfirm: (conversationId: string) => void;
-  confirmDelete: () => void;
+  confirmDelete: () => Promise<boolean>;
+  removeConversations: (ids: readonly string[]) => Promise<number>;
   cancelDelete: () => void;
   handleAttachToOverlay: (conversationId: string) => void;
   handleDownload: (
@@ -128,25 +130,27 @@ export function useHistory(): UseHistoryReturn {
     setDeleteConfirm(conversationId);
   };
 
+  const removeConversations = async (ids: readonly string[]) => {
+    const count = await deleteConversations(ids);
+    const removed = new Set(ids);
+    setConversations((prev) => prev.filter((conversation) => !removed.has(conversation.id)));
+    setSelectedConversationId((previous) => previous && removed.has(previous) ? null : previous);
+    setViewingConversation((previous) => previous && removed.has(previous.id) ? null : previous);
+    void emit("conversations-deleted", ids).catch((error) => {
+      console.error("Failed to notify Pluely windows of deleted conversations:", error);
+    });
+    return count;
+  };
+
   const confirmDelete = async () => {
-    if (!deleteConfirm) return;
-
+    if (!deleteConfirm) return false;
     try {
-      setSelectedConversationId(null);
-      setViewingConversation(null);
-      await deleteConversation(deleteConfirm);
-      setConversations((prev) => prev.filter((c) => c.id !== deleteConfirm));
-
-      // Emit event to notify other components about deletion
-      window.dispatchEvent(
-        new CustomEvent("conversationDeleted", {
-          detail: deleteConfirm,
-        })
-      );
+      await removeConversations([deleteConfirm]);
+      setDeleteConfirm(null);
+      return true;
     } catch (error) {
       console.error("Failed to delete conversation:", error);
-    } finally {
-      setDeleteConfirm(null);
+      return false;
     }
   };
 
@@ -224,6 +228,7 @@ export function useHistory(): UseHistoryReturn {
     handleDownloadConversation,
     handleDeleteConfirm,
     confirmDelete,
+    removeConversations,
     cancelDelete,
     handleAttachToOverlay,
     handleDownload,

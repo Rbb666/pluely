@@ -13,7 +13,8 @@ import {
   safeLocalStorage,
   shouldUsePluelyAPI,
   generateConversationTitle,
-  saveConversation,
+  createConversation,
+  updateConversation,
   CONVERSATION_SAVE_DEBOUNCE_MS,
   generateConversationId,
   generateMessageId,
@@ -110,6 +111,7 @@ export function useSystemAudio() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSavingRef = useRef<boolean>(false);
+  const savedConversationIdRef = useRef<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const isUpdatingVadConfigRef = useRef(false);
   const captureSessionRef = useRef(0);
@@ -534,6 +536,7 @@ export function useSystemAudio() {
         let fullResponse = "";
 
         const usePluelyAPI = await shouldUsePluelyAPI();
+        if (controller.signal.aborted) return;
         if (!selectedAIProvider.provider && !usePluelyAPI) {
           setError("尚未选择 AI 服务。");
           return;
@@ -557,6 +560,7 @@ export function useSystemAudio() {
             imagesBase64: [],
             signal: controller.signal,
           })) {
+            if (controller.signal.aborted) return;
             fullResponse += chunk;
             setLastAIResponse((prev) => prev + chunk);
           }
@@ -801,7 +805,12 @@ export function useSystemAudio() {
 
       try {
         isSavingRef.current = true;
-        await saveConversation(conversation);
+        if (savedConversationIdRef.current === conversation.id) {
+          await updateConversation(conversation);
+        } else {
+          await createConversation(conversation);
+          savedConversationIdRef.current = conversation.id;
+        }
       } catch (error) {
         console.error("Failed to save system audio conversation:", error);
       } finally {
@@ -823,6 +832,14 @@ export function useSystemAudio() {
   ]);
 
   const startNewConversation = useCallback(() => {
+    captureSessionRef.current += 1;
+    cancelTranscriptions();
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
     setConversation({
       id: generateConversationId("sysaudio"),
       title: "",
@@ -838,7 +855,22 @@ export function useSystemAudio() {
     setIsAIProcessing(false);
     setIsPopoverOpen(false);
     setUseSystemPrompt(true);
-  }, []);
+  }, [cancelTranscriptions]);
+
+  useEffect(() => {
+    if (!conversation.id) return;
+
+    let active = true;
+    const unlisten = listen<string[]>("conversations-deleted", ({ payload }) => {
+      if (active && payload.includes(conversation.id)) startNewConversation();
+    }).catch((error) => {
+      console.error("Failed to listen for deleted conversations:", error);
+    });
+    return () => {
+      active = false;
+      void unlisten.then((unsubscribe) => unsubscribe?.());
+    };
+  }, [conversation.id, startNewConversation]);
 
   // Update VAD configuration
   const updateVadConfiguration = useCallback(async (config: VadConfig) => {

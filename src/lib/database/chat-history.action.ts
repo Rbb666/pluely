@@ -162,10 +162,9 @@ export async function getAllConversations(): Promise<ChatConversation[]> {
 
     // Get all messages for these conversations in one query
     const conversationIds = conversations.map((c) => c.id);
-    const placeholders = conversationIds.map(() => "?").join(",");
     const allMessages = await db.select<DbMessage[]>(
-      `SELECT * FROM messages WHERE conversation_id IN (${placeholders}) ORDER BY conversation_id, timestamp ASC`,
-      conversationIds
+      "SELECT * FROM messages WHERE conversation_id IN (SELECT value FROM json_each(?)) ORDER BY conversation_id, timestamp ASC",
+      [JSON.stringify(conversationIds)]
     );
 
     // Group messages by conversation_id
@@ -371,16 +370,28 @@ export async function deleteConversation(id: string): Promise<boolean> {
     return false;
   }
 
+  return (await deleteConversations([id])) > 0;
+}
+
+/** Delete the selected conversations and their messages in one statement. */
+export async function deleteConversations(ids: readonly string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  if (ids.some((id) => typeof id !== "string" || !id)) {
+    throw new Error("会话 ID 无效。");
+  }
+
   const db = await getDatabase();
 
   try {
-    const result = await db.execute("DELETE FROM conversations WHERE id = ?", [
-      id,
-    ]);
-
-    return result.rowsAffected > 0;
+    // Bound JSON keeps large selections within SQLite's variable limit.
+    // The messages foreign key cascades within the same atomic statement.
+    const result = await db.execute(
+      "DELETE FROM conversations WHERE id IN (SELECT value FROM json_each(?))",
+      [JSON.stringify(ids)]
+    );
+    return result.rowsAffected;
   } catch (error) {
-    console.error(`Failed to delete conversation ${id}:`, error);
+    console.error("Failed to delete selected conversations:", error);
     throw error;
   }
 }

@@ -42,7 +42,7 @@ export const DragButton = () => {
               </p>
               <p className="text-sm font-medium text-muted-foreground">
                 购买后，你会通过电子邮件收到授权密钥。
-                请在“控制面板”的 Pluely 授权区域粘贴密钥并激活。
+                请在「服务配置」的「Pluely 云端服务」中粘贴密钥并激活。
               </p>
             </div>
             <GetLicense setState={setIsOpen} />
