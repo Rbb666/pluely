@@ -1,6 +1,7 @@
 import {
   AI_PROVIDERS,
   DEFAULT_SYSTEM_PROMPT,
+  GEMINI_WEB2API_AI_PROVIDER,
   SPEECH_TO_TEXT_PROVIDERS,
   STORAGE_KEYS,
 } from "@/config";
@@ -103,6 +104,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [selectedAIProvider, setSelectedAIProvider] = useState<{
     provider: string;
     variables: Record<string, string>;
+    savedVariables?: Record<string, Record<string, string>>;
   }>({
     provider: "",
     variables: {},
@@ -518,6 +520,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Computed all AI providers
   const allAiProviders: TYPE_PROVIDER[] = [
     ...AI_PROVIDERS,
+    GEMINI_WEB2API_AI_PROVIDER,
     ...customAiProviders,
   ];
 
@@ -551,11 +554,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    setSelectedAIProvider((prev) => ({
-      ...prev,
-      provider,
-      variables,
-    }));
+    setSelectedAIProvider((previous) => {
+      const geminiId = GEMINI_WEB2API_AI_PROVIDER.id;
+      if (previous.provider !== geminiId && provider !== geminiId) {
+        return { ...previous, provider, variables };
+      }
+
+      const savedVariables = { ...previous.savedVariables };
+      if (provider === geminiId) {
+        const restoredVariables =
+          previous.provider !== provider && Object.keys(variables).length === 0
+            ? savedVariables[geminiId] ?? variables
+            : variables;
+        delete savedVariables[geminiId];
+        return { provider, variables: restoredVariables, savedVariables };
+      }
+
+      savedVariables[geminiId] = previous.variables;
+      return { provider, variables, savedVariables };
+    });
   };
 
   // Setter for selected STT with validation

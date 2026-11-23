@@ -14,6 +14,8 @@ import { shouldUsePluelyAPI } from "./pluely.api";
 import { CHUNK_POLL_INTERVAL_MS } from "../chat-constants";
 import { getResponseSettings, RESPONSE_LENGTHS, LANGUAGES } from "@/lib";
 import { MARKDOWN_FORMATTING_INSTRUCTIONS } from "@/config/constants";
+import { GEMINI_WEB2API_AI_PROVIDER } from "@/config/ai-providers.constants";
+import { fetchGeminiProxyResponse } from "./gemini-proxy.function";
 
 function buildEnhancedSystemPrompt(baseSystemPrompt?: string): string {
   const responseSettings = getResponseSettings();
@@ -213,6 +215,19 @@ export async function* fetchAIResponse(params: {
     }
     if (!selectedProvider) {
       throw new Error(`尚未选择服务`);
+    }
+
+    if (provider.id === GEMINI_WEB2API_AI_PROVIDER.id) {
+      if (!userMessage) throw new Error("请输入消息内容");
+      if (imagesBase64.length) throw new Error("Gemini 本地代理不支持图片输入");
+      yield* fetchGeminiProxyResponse({
+        variables: selectedProvider.variables,
+        systemPrompt: enhancedSystemPrompt,
+        history,
+        userMessage,
+        signal,
+      });
+      return;
     }
 
     let curlJson;

@@ -1,4 +1,12 @@
-import { Message } from "@/types";
+import type { ChatMessage, Message } from "@/types";
+
+export function buildConversationHistory(
+  messages: readonly ChatMessage[]
+): Message[] {
+  return [...messages]
+    .sort((first, second) => first.timestamp - second.timestamp)
+    .map(({ role, content }) => ({ role, content }));
+}
 
 /** Display labels only; provider variable keys remain unchanged. */
 export function getProviderVariableLabel(variable: string): string {

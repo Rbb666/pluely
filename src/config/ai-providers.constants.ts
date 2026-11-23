@@ -1,3 +1,13 @@
+export const GEMINI_WEB2API_AI_PROVIDER = {
+  id: "gemini-web2api",
+  name: "Gemini 本地代理",
+  curl: "",
+  responseContentPath: "choices[0].message.content",
+  streaming: true,
+  defaultEndpoint: "http://127.0.0.1:8083/v1/chat/completions",
+  defaultModel: "gemini-3.5-flash-lite",
+};
+
 export const AI_PROVIDERS = [
   {
     id: "openai",
