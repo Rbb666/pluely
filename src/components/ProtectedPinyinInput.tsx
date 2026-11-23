@@ -47,6 +47,7 @@ export function ProtectedPinyinInput({
   const mountedRef = useRef(true);
   const suppressNextFocusRef = useRef(false);
   const retryFocusRef = useRef(false);
+  const shiftTapRef = useRef<string | null>(null);
   const panelOpen = (focused || blocked) && !disabled;
   const pageCount = Math.max(1, Math.ceil(candidates.length / PAGE_SIZE));
   const pageCandidates = candidates.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -92,6 +93,7 @@ export function ProtectedPinyinInput({
 
   useEffect(() => {
     if (disabled) {
+      shiftTapRef.current = null;
       setFocused(false);
       clearComposition();
     }
@@ -155,7 +157,12 @@ export function ProtectedPinyinInput({
     applyEdit(edit);
   };
 
+  const insertRawComposition = () => {
+    chooseCandidate({ text: composition, consumed: composition.length });
+  };
+
   const reportSystemIME = () => {
+    shiftTapRef.current = null;
     clearComposition();
     setBlocked(true);
     setFocused(false);
@@ -189,11 +196,21 @@ export function ProtectedPinyinInput({
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Shift") shiftTapRef.current = null;
     if (disabled || blocked) { event.preventDefault(); return; }
     if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 || event.key === "Process") {
       event.preventDefault();
       event.stopPropagation();
       reportSystemIME();
+      return;
+    }
+    if (event.key === "Shift") {
+      if (!event.repeat) {
+        const modified = event.ctrlKey || event.altKey || event.metaKey;
+        shiftTapRef.current = !modified && shiftTapRef.current === null
+          ? (event.code || event.key)
+          : null;
+      }
       return;
     }
     if (event.ctrlKey || event.metaKey) {
@@ -285,10 +302,29 @@ export function ProtectedPinyinInput({
     }
   };
 
+  const handleKeyUp = (event: KeyboardEvent<HTMLInputElement>) => {
+    const shiftTap = shiftTapRef.current;
+    shiftTapRef.current = null;
+    if (
+      event.key !== "Shift" ||
+      shiftTap !== (event.code || event.key) ||
+      disabled || blocked ||
+      event.ctrlKey || event.altKey || event.metaKey ||
+      event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229
+    ) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (composition) insertRawComposition();
+    setEnglish((previous) => !previous);
+    setNotice("");
+    setFocused(true);
+  };
+
   const keepInputFocus = (event: React.MouseEvent) => event.preventDefault();
 
   return (
-    <div className="relative min-w-0 flex-1">
+    <div className="relative min-w-0 flex-1" onPointerDown={() => { shiftTapRef.current = null; }}>
       <Input
         ref={(node) => { nodeRef.current = node; if (inputRef) inputRef.current = node; }}
         value={value}
@@ -296,7 +332,7 @@ export function ProtectedPinyinInput({
         inputMode="none"
         aria-label={english ? "应用内英文输入" : "应用内拼音输入"}
         aria-describedby={panelOpen ? "protected-pinyin-help" : undefined}
-        placeholder={placeholder}
+        placeholder={english ? "输入英文、数字或标点…" : placeholder}
         disabled={disabled || blocked}
         className={className}
         onFocus={() => {
@@ -305,8 +341,9 @@ export function ProtectedPinyinInput({
           setFocused(true);
         }}
         onClick={() => { if (!blocked) setFocused(true); }}
-        onBlur={() => setFocused(false)}
+        onBlur={() => { shiftTapRef.current = null; setFocused(false); }}
         onKeyDown={handleKeyDown}
+        onKeyUp={handleKeyUp}
         onCompositionStart={reportSystemIME}
         onPaste={handlePaste}
         onContextMenu={(event) => { event.preventDefault(); setNotice("使用 Ctrl+C 复制、Ctrl+V 粘贴，避免打开系统菜单。"); }}
@@ -316,18 +353,14 @@ export function ProtectedPinyinInput({
           onClick={(event) => event.stopPropagation()} onMouseDown={keepInputFocus}
           onContextMenu={(event) => event.preventDefault()}>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-medium">{english ? "应用内英文输入" : "应用内拼音选字"}</span>
-            {!blocked && <div className="flex gap-1">
-              <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={!!composition}
-                title={composition ? "请先选字或按 Esc 清除拼音，再切换输入模式" : "切换应用内拼音和英文输入"}
-                onClick={() => { setEnglish((previous) => !previous); setNotice(""); }}>
-                {english ? "切换拼音" : "切换英文"}
-              </Button>
+            <span role="status" className="text-xs font-medium">{english ? "应用内英文输入" : "应用内拼音选字"}</span>
+            {!blocked && (
               <Button size="sm" variant="ghost" className="h-7 text-xs" title="粘贴剪贴板文字" onClick={() => void readClipboard()}>粘贴</Button>
-            </div>}
+            )}
           </div>
           <p id="protected-pinyin-help" className="text-[11px] text-muted-foreground">
-            {english ? "直接输入英文、数字和标点；Enter 发送。" : "输入全拼，空格或 1–9 选字；有拼音时 Enter 只选字，再按 Enter 发送。"}
+            {!blocked && "单按 Shift 切换中英文。"}
+            {english ? "直接输入英文、数字和标点，按 Enter 发送。" : "输入全拼，用空格或 1–9 选字。有拼音时先按 Enter 选字，再按 Enter 发送。"}
           </p>
           {notice && <p role="alert" className="text-xs text-amber-600 break-words">{notice}</p>}
           {blocked && (
@@ -355,10 +388,7 @@ export function ProtectedPinyinInput({
               ) : <p role="status" className="text-xs text-muted-foreground">暂无候选，可用英文单引号分隔拼音，或按 Esc 重新输入。</p>}
               <div className="flex items-center justify-between gap-2 text-xs">
                 <Button size="sm" variant="ghost" className="h-7 text-xs" title="将当前拼音字母作为原文插入"
-                  onClick={() => {
-                    const range = compositionRangeRef.current;
-                    if (range) { const edit = replaceSelection(value, range.start, range.end, composition); clearComposition(); applyEdit(edit); }
-                  }}>输入拼音原文</Button>
+                  onClick={insertRawComposition}>输入拼音原文</Button>
                 {pageCount > 1 && <div className="flex items-center gap-1">
                   <Button size="sm" variant="ghost" className="h-7 px-2" title="上一页候选词" disabled={page === 0} onClick={() => setPage(page - 1)}>上一页</Button>
                   <span>{page + 1}/{pageCount}</span>
