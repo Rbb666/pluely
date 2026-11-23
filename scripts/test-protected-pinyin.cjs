@@ -43,10 +43,12 @@ function harness(query) {
   const all=(element=tree)=>element? [element,...(Array.isArray(element.props?.children)?element.props.children:[element.props?.children]).filter(v=>typeof v==='object'&&v).flatMap(v=>Array.isArray(v)?v.flatMap(e=>all(e)):all(v))]:[];
   function flush(){let n=0;while(dirty||effects.length){if(++n>40)throw Error('render loop');if(dirty){dirty=false;index=0;tree=exports.ProtectedPinyinInput(props);const input=all().find(e=>e.type==='input');node.value=props.value;input.props.ref(node);}while(effects.length)effects.shift()();}}
   function input(){return all().find(e=>e.type==='input');}
-  function key(key,overrides={}){flush();const e={key,nativeEvent:{isComposing:false,keyCode:0},preventDefault(){this.defaultPrevented=true;},stopPropagation(){},...overrides};input().props.onKeyDown(e);flush();return e;}
+  function keyboardEvent(handler,key,overrides={}){flush();const e={key,nativeEvent:{isComposing:false,keyCode:0},preventDefault(){this.defaultPrevented=true;},stopPropagation(){},...overrides};input().props[handler](e);flush();return e;}
+  const key=(value,overrides)=>keyboardEvent('onKeyDown',value,overrides);
+  const keyUp=(value,overrides)=>keyboardEvent('onKeyUp',value,overrides);
   const settle=async()=>{await Promise.resolve();await Promise.resolve();flush();};
   flush();
-  return {props,node,key,settle,flush,all,input,rerender(){dirty=true;flush();},focus(){input().props.onFocus();flush();},get composing(){return composing;},get submits(){return submits;},get open(){return open;}};
+  return {props,node,key,keyUp,settle,flush,all,input,rerender(){dirty=true;flush();},focus(){input().props.onFocus();flush();},get composing(){return composing;},get submits(){return submits;},get open(){return open;}};
 }
 
 (async()=>{
@@ -84,5 +86,68 @@ function harness(query) {
   partial.focus();for(const c of 'nihao')partial.key(c);await partial.settle();
   partial.key(' ');await partial.settle();partial.key(' ');assert.equal(partial.props.value,'你好');
   let prevented=false;partial.input().props.onContextMenu({preventDefault(){prevented=true;}});assert.equal(prevented,true);
-  console.log('Protected pinyin UI checks passed: readonly field, composition/confirmation, partial selection, async races, IME rejection, submit focus, disabled state, Unicode edits, context menus.');
+
+  const shortcut = harness(async (pinyin) => pinyin === 'ni' ? [{ text: '你', consumed: 2 }] : []);
+  shortcut.focus();
+  const mode = () => shortcut.input().props['aria-label'];
+  const left = { code: 'ShiftLeft' };
+  const right = { code: 'ShiftRight' };
+  const pinyinMode = '应用内拼音输入';
+  const englishMode = '应用内英文输入';
+
+  shortcut.key('Shift', left);
+  shortcut.key('Shift', { ...left, repeat: true });
+  assert.equal(mode(), pinyinMode, 'Shift keydown and autorepeat must not switch modes');
+  assert.equal(shortcut.keyUp('Shift', left).defaultPrevented, true);
+  assert.equal(mode(), englishMode, 'a left Shift tap must switch to English exactly once');
+
+  shortcut.key('Shift', left);
+  shortcut.key('A', { shiftKey: true });
+  shortcut.keyUp('A', { shiftKey: true });
+  shortcut.keyUp('Shift', left);
+  assert.equal(shortcut.props.value, 'A');
+  assert.equal(mode(), englishMode, 'typing a capital letter must not switch modes');
+
+  shortcut.key('Shift', left);
+  const selectionKey = shortcut.key('ArrowLeft', { shiftKey: true });
+  shortcut.keyUp('Shift', left);
+  assert.equal(selectionKey.defaultPrevented, undefined, 'Shift+Arrow must retain native selection');
+  assert.equal(mode(), englishMode);
+
+  shortcut.key('Shift', { ...right, ctrlKey: true });
+  shortcut.keyUp('Control');
+  shortcut.keyUp('Shift', right);
+  assert.equal(mode(), englishMode, 'Ctrl+Shift must not switch modes when Ctrl is released first');
+
+  shortcut.key('Shift', left);
+  shortcut.key('Shift', right);
+  shortcut.keyUp('Shift', right);
+  shortcut.keyUp('Shift', left);
+  assert.equal(mode(), englishMode, 'using both Shift keys must not switch modes');
+
+  shortcut.key('Shift', left);
+  shortcut.input().props.onBlur();
+  shortcut.focus();
+  shortcut.keyUp('Shift', left);
+  assert.equal(mode(), englishMode, 'a Shift tap must not survive loss of focus');
+
+  shortcut.key('Shift', left);
+  shortcut.all().find((element) => element.props?.onPointerDown).props.onPointerDown();
+  shortcut.keyUp('Shift', left);
+  assert.equal(mode(), englishMode, 'Shift+click must not switch modes');
+
+  shortcut.key('Shift', right);
+  shortcut.keyUp('Shift', right);
+  assert.equal(mode(), pinyinMode, 'right Shift must switch back to pinyin');
+  shortcut.key('n');
+  shortcut.key('i');
+  await shortcut.settle();
+  assert.equal(shortcut.composing, true);
+  shortcut.key('Shift', left);
+  shortcut.keyUp('Shift', left);
+  assert.equal(shortcut.props.value, 'Ani', 'switching mid-composition must preserve the typed pinyin');
+  assert.equal(shortcut.composing, false);
+  assert.equal(mode(), englishMode);
+
+  console.log('Protected pinyin checks passed: Shift mode switching, shortcut and selection handling, composition, IME rejection, editing, and focus.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
